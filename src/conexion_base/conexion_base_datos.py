@@ -1,3 +1,4 @@
+import json
 import pandas as pd
 import argparse
 import os
@@ -113,40 +114,43 @@ if __name__ == "__main__":
         dict_cols = [c for c in df.columns if c not in data_cols]
         dict_cols_per_df[key] = dict_cols
         
-        # Extraer filas para el diccionario
-        df_dict_unique = df[dict_cols].drop_duplicates().reset_index(drop=True)
-        df_dict_unique['valor'] = df_dict_unique['name'].apply(lambda x: x.split('-', 1)[1].strip() if '-' in str(x) else str(x).strip())
-        df_dict_unique['variable_name'] = df_dict_unique['name'].apply(lambda x: x.split('-', 1)[0].strip() if '-' in str(x) else str(x).strip())
-        df_dict_unique['description'] = df_dict_unique['descripcion']        
-        
-        # 1. Tabla dict (variables)
-        df_vars = df_dict_unique[['variable_name', 'descripcion']].drop_duplicates(subset=['variable_name']).reset_index(drop=True)
-        df_vars = df_vars.rename(columns={'descripcion': 'description'})
+        def _get_path(code):
+            base = code.replace('::presencia', '')
+            if '::' in base:
+                return base.split('::')[-1]
+            elif '-' in base:
+                return base.split('-', 1)[0]
+            return base
+
+        # 1. Tabla dict (una fila por variable derivada: code)
+        df_vars = df[['code', 'name', 'descripcion']].drop_duplicates(subset=['code']).reset_index(drop=True)
+        df_vars['metadata'] = df_vars.apply(lambda row: json.dumps({
+            'descripcion': row['descripcion'] if pd.notna(row['descripcion']) else None,
+            'alias': row['name'],
+            'path': _get_path(row['code'])
+        }, ensure_ascii=False), axis=1)
+        df_vars = df_vars.rename(columns={'code': 'variable_name'})
         df_vars['id'] = df_vars.index + 1
 
         print(df_vars)
-        
+
         # Merge df_vars into the df to get dict_id
-        df['variable_name'] = df['name'].apply(lambda x: x.split('-', 1)[0].strip() if '-' in str(x) else str(x).strip())
-        df['valor'] = df['name'].apply(lambda x: x.split('-', 1)[1].strip() if '-' in str(x) else str(x).strip())
-        df = df.merge(df_vars, on='variable_name', how='left').rename(columns={'id': 'dict_id'})
-        
-        # 2. Tabla values
+        df = df.merge(df_vars[['id', 'variable_name']].rename(columns={'variable_name': 'code'}), on='code', how='left').rename(columns={'id': 'dict_id'})
+
+        # 2. Tabla values (sin valor ni alias)
         interval_cols = [c for c in df.columns if c.startswith('interval_')]
-        val_cols_to_extract = ['dict_id', 'valor', 'code', 'bin'] + interval_cols
+        val_cols_to_extract = ['dict_id', 'bin'] + interval_cols
         df_vals = df[val_cols_to_extract].copy()
-        df_vals = df_vals.rename(columns={'code': 'alias'})
-        df_vals['alias'] = df_vals['alias'].apply(lambda x: str(x).split('-', 1)[1].strip() if '-' in str(x) else str(x).strip())
         df_vals['id'] = df_vals.index + 1
-        
+
         # columns for generating table
-        val_cols_for_table = ['id', 'dict_id', 'valor', 'alias', 'bin'] + interval_cols
-        
+        val_cols_for_table = ['id', 'dict_id', 'bin'] + interval_cols
+
         df_dicts[key] = {
             'vars': df_vars,
             'vals': df_vals[val_cols_for_table]
         }
-        
+
         # Merge values_id de vuelta a cada dataframe
         df['values_id'] = df_vals['id']
         dataframes[key] = df
@@ -198,27 +202,25 @@ if __name__ == "__main__":
 
                 # --- 1. Crear e insertar en tabla diccionario (variables) ---
                 if args.crear_tabla:
+                    cursor.execute(f"DROP TABLE IF EXISTS {tabla_dict} CASCADE;")
                     create_dict_sql = f"""
-                    CREATE TABLE IF NOT EXISTS {tabla_dict} (
+                    CREATE TABLE {tabla_dict} (
                         id INTEGER PRIMARY KEY,
                         variable_name TEXT,
-                        description TEXT,
+                        metadata JSONB,
                         available_grids TEXT[]
                     );
                     """
                     cursor.execute(create_dict_sql)
-                    # asegurar que la columna available_grids exista cuando la tabla ya estaba creada con el esquema previo
-                    cursor.execute(f"ALTER TABLE {tabla_dict} ADD COLUMN IF NOT EXISTS available_grids TEXT[];")
-                    cursor.execute(f"TRUNCATE TABLE {tabla_dict} CASCADE;")
 
                 # Insertar datos vars
                 buffer_vars = StringIO()
-                df_vars[['id', 'variable_name', 'description', 'available_grids']].to_csv(buffer_vars, index=False, header=True)
+                df_vars[['id', 'variable_name', 'metadata', 'available_grids']].to_csv(buffer_vars, index=False, header=True)
                 buffer_vars.seek(0)
 
                 with cursor.copy(sql.SQL("COPY {} ({}) FROM STDIN WITH CSV HEADER").format(
                     sql.Identifier(tabla_dict),
-                    sql.SQL("id, variable_name, description, available_grids")
+                    sql.SQL("id, variable_name, metadata, available_grids")
                 )) as copy:
                     copy.write(buffer_vars.getvalue())
                 
@@ -229,8 +231,6 @@ if __name__ == "__main__":
                     val_columns_sql = [
                         "id INTEGER PRIMARY KEY",
                         f"dict_id INTEGER REFERENCES {tabla_dict}(id)",
-                        "valor TEXT",
-                        "alias TEXT",
                         "bin INTEGER"
                     ]
                     
@@ -253,7 +253,9 @@ if __name__ == "__main__":
 
                 # Insertar datos vals
                 buffer_vals = StringIO()
-                val_cols_for_table = ['id', 'dict_id', 'valor', 'alias', 'bin'] + [c for c in df_vals.columns if c.startswith('interval_')]
+                val_cols_for_table = ['id', 'dict_id', 'bin'] + [c for c in df_vals.columns if c.startswith('interval_')]
+                df_vals = df_vals.copy()
+                df_vals['bin'] = df_vals['bin'].astype('Int64')
                 df_vals[val_cols_for_table].to_csv(buffer_vals, index=False, header=True)
                 buffer_vals.seek(0)
                 
@@ -266,7 +268,7 @@ if __name__ == "__main__":
                 print(f"Datos insertados exitosamente en la tabla de valores '{tabla_vals}'")
 
                 # --- 3. Crear e insertar en tablas de datos principal ---
-                cols_to_exclude = set(dict_cols + ['values_id', 'bin', 'variable_name', 'valor', 'dict_id', 'description', 'descripcion'] + [c for c in df.columns if c.startswith('interval_')])
+                cols_to_exclude = set(dict_cols + ['values_id', 'bin', 'dict_id', 'description', 'descripcion'] + [c for c in df.columns if c.startswith('interval_')])
                 data_cols_current = [c for c in df.columns if c not in cols_to_exclude and c != 'id']
                 
                 if args.crear_tabla:
