@@ -5,6 +5,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 env_path = Path(os.getcwd()) / ".env"
+print(f"\n>>> Loading environment from: {env_path}")
 
 load_dotenv(dotenv_path=env_path)
 
