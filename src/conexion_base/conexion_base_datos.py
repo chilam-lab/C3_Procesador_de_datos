@@ -35,22 +35,48 @@ if __name__ == "__main__":
     if not any([args.ruta_datos_lugares, args.ruta_datos_personas, args.ruta_datos_procesados]):
         raise ValueError("Se debe especificar al menos un archivo de datos: --ruta-datos-lugares, --ruta-datos-personas o --ruta-datos-procesados")
 
+    def _split_mallas(df):
+        """Separa un DataFrame con múltiples mallas en un dict {malla: DataFrame}.
+        Detecta las mallas por los prefijos de las columnas cells_*.
+        Si no hay columnas cells_*, devuelve None para usar el fallback."""
+        mallas = [col[len('cells_'):] for col in df.columns if col.startswith('cells_')]
+        if not mallas:
+            return None
+        shared = [c for c in df.columns if not c.startswith('cells_') and not c.startswith('interval_')]
+        result = {}
+        for malla in mallas:
+            cols = shared + [f'interval_{malla}', f'cells_{malla}']
+            result[malla] = df[[c for c in cols if c in df.columns]].copy()
+        return result
+
     dataframes = {}
-    
+
     # Cargar datos de lugares
     ruta_lugares = args.ruta_datos_lugares or args.ruta_datos_procesados
     if ruta_lugares:
         if os.path.exists(ruta_lugares):
-            dataframes['mun'] = pd.read_csv(ruta_lugares)
-            print(f"Cargado archivo de lugares: {ruta_lugares}")
+            df_lugares = pd.read_csv(ruta_lugares)
+            mallas_lugares = _split_mallas(df_lugares)
+            if mallas_lugares:
+                dataframes.update(mallas_lugares)
+                print(f"Cargado archivo de lugares: {ruta_lugares} (mallas detectadas: {list(mallas_lugares.keys())})")
+            else:
+                dataframes['mun'] = df_lugares
+                print(f"Cargado archivo de lugares: {ruta_lugares}")
         else:
             raise FileNotFoundError(f"No se encontró el archivo de lugares: {ruta_lugares}")
 
     # Cargar datos del ensamble secundario
     if args.ruta_datos_personas:
         if os.path.exists(args.ruta_datos_personas):
-            dataframes[args.tipo_ensamble] = pd.read_csv(args.ruta_datos_personas)
-            print(f"Cargado archivo de ensamble '{args.tipo_ensamble}': {args.ruta_datos_personas}")
+            df_personas = pd.read_csv(args.ruta_datos_personas)
+            mallas_personas = _split_mallas(df_personas)
+            if mallas_personas:
+                dataframes.update(mallas_personas)
+                print(f"Cargado archivo de ensamble: {args.ruta_datos_personas} (mallas detectadas: {list(mallas_personas.keys())})")
+            else:
+                dataframes[args.tipo_ensamble] = df_personas
+                print(f"Cargado archivo de ensamble '{args.tipo_ensamble}': {args.ruta_datos_personas}")
         else:
             raise FileNotFoundError(f"No se encontró el archivo de ensamble '{args.tipo_ensamble}': {args.ruta_datos_personas}")
 
@@ -99,9 +125,8 @@ if __name__ == "__main__":
                         s = str(val).replace('%', '').strip()
                         if ':' in s:
                             parts = s.split(':')
-                            # manejar posibles espacios o vacios
                             return f"[{parts[0].strip()},{parts[1].strip()})"
-                        return val
+                        return None  # valores no-rango (e.g. "Sin clasificar") → NULL
                     df[col] = df[col].apply(transform_range)
                 else:
                     special_types[col] = "TEXT"
