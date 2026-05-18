@@ -162,12 +162,24 @@ if __name__ == "__main__":
         for var_name in dicts['vars']['variable_name']:
             variable_to_grids.setdefault(var_name, set()).add(grid_key)
 
-    # serializar el conjunto a literal de array de PostgreSQL '{a,b}' por variable, en cada df_vars
-    for grid_key in df_dicts:
-        df_vars_grid = df_dicts[grid_key]['vars']
-        df_vars_grid['available_grids'] = df_vars_grid['variable_name'].apply(
-            lambda v: '{' + ','.join(sorted(variable_to_grids.get(v, set()))) + '}'
+    # construir tabla diccionario unificada: todas las variables de todas las mallas, sin duplicados
+    all_vars_frames = [dicts['vars'][['variable_name', 'metadata']] for dicts in df_dicts.values()]
+    df_vars_all = pd.concat(all_vars_frames).drop_duplicates(subset=['variable_name']).reset_index(drop=True)
+    df_vars_all['id'] = df_vars_all.index + 1
+    df_vars_all['available_grids'] = df_vars_all['variable_name'].apply(
+        lambda v: '{' + ','.join(sorted(variable_to_grids.get(v, set()))) + '}'
+    )
+
+    # re-mapear dict_id en cada malla al ID global del diccionario unificado
+    var_to_global_id = dict(zip(df_vars_all['variable_name'], df_vars_all['id']))
+    for key in df_dicts:
+        df_vars_local = df_dicts[key]['vars']
+        local_to_varname = dict(zip(df_vars_local['id'], df_vars_local['variable_name']))
+        df_vals_remapped = df_dicts[key]['vals'].copy()
+        df_vals_remapped['dict_id'] = df_vals_remapped['dict_id'].map(
+            lambda lid: var_to_global_id[local_to_varname[lid]]
         )
+        df_dicts[key]['vals'] = df_vals_remapped
 
     # conexion postgres
     with psycopg.connect(
@@ -190,47 +202,44 @@ if __name__ == "__main__":
                 'bool': 'BOOLEAN'
             }
 
-            for key, df in dataframes.items():
-                suffix = f'_{key}'
-                tabla_destino = f"{tabla_base}{suffix}"
-                tabla_dict = f"dict_{tabla_base}{suffix}"
-                
-                df_vars = df_dicts[key]['vars']
-                df_vals = df_dicts[key]['vals']
-                dict_cols = dict_cols_per_df[key]
-                tabla_vals = f"values_{tabla_base}{suffix}"
+            tabla_dict = f"dict_{tabla_base}"
 
-                # --- 1. Crear e insertar en tabla diccionario (variables) ---
-                if args.crear_tabla:
-                    cursor.execute(f"DROP TABLE IF EXISTS {tabla_dict} CASCADE;")
-                    create_dict_sql = f"""
+            # --- 1. Crear e insertar tabla diccionario unificada (una sola vez) ---
+            if args.crear_tabla:
+                cursor.execute(f"DROP TABLE IF EXISTS {tabla_dict} CASCADE;")
+                cursor.execute(f"""
                     CREATE TABLE {tabla_dict} (
                         id INTEGER PRIMARY KEY,
                         variable_name TEXT,
                         metadata JSONB,
                         available_grids TEXT[]
                     );
-                    """
-                    cursor.execute(create_dict_sql)
+                """)
 
-                # Insertar datos vars
-                buffer_vars = StringIO()
-                df_vars[['id', 'variable_name', 'metadata', 'available_grids']].to_csv(buffer_vars, index=False, header=True)
-                buffer_vars.seek(0)
+            buffer_vars = StringIO()
+            df_vars_all[['id', 'variable_name', 'metadata', 'available_grids']].to_csv(buffer_vars, index=False, header=True)
+            buffer_vars.seek(0)
 
-                with cursor.copy(sql.SQL("COPY {} ({}) FROM STDIN WITH CSV HEADER").format(
-                    sql.Identifier(tabla_dict),
-                    sql.SQL("id, variable_name, metadata, available_grids")
-                )) as copy:
-                    copy.write(buffer_vars.getvalue())
-                
-                print(f"Datos insertados exitosamente en la tabla diccionario '{tabla_dict}'")
+            with cursor.copy(sql.SQL("COPY {} ({}) FROM STDIN WITH CSV HEADER").format(
+                sql.Identifier(tabla_dict),
+                sql.SQL("id, variable_name, metadata, available_grids")
+            )) as copy:
+                copy.write(buffer_vars.getvalue())
+
+            print(f"Datos insertados exitosamente en la tabla diccionario '{tabla_dict}'")
+
+            for key, df in dataframes.items():
+                suffix = f'_{key}'
+                tabla_destino = f"{tabla_base}{suffix}"
+                df_vals = df_dicts[key]['vals']
+                dict_cols = dict_cols_per_df[key]
+                tabla_vals = f"values_{tabla_base}{suffix}"
 
                 # --- 2. Crear e insertar en tabla values ---
                 if args.crear_tabla:
                     val_columns_sql = [
                         "id INTEGER PRIMARY KEY",
-                        f"dict_id INTEGER REFERENCES {tabla_dict}(id)",
+                        f"dict_id INTEGER REFERENCES {tabla_dict}(id)",  # referencia al dict unificado
                         "bin INTEGER"
                     ]
                     
