@@ -182,12 +182,19 @@ if __name__ == "__main__":
         df['values_id'] = df_vals['id']
         dataframes[key] = df
 
-    # construir mapeo variable_name -> conjunto de ensambles donde aparece
-    # (cruzando todos los df_vars de cada ensamble cargado en `dataframes`)
+    # construir mapeo variable_name -> conjunto de ensambles con datos reales
+    # (solo se cuenta una malla si la variable tiene al menos un intervalo no-nulo)
     variable_to_grids = {}
     for grid_key, dicts in df_dicts.items():
-        for var_name in dicts['vars']['variable_name']:
-            variable_to_grids.setdefault(var_name, set()).add(grid_key)
+        df_vals_grid = dicts['vals']
+        interval_col = next((c for c in df_vals_grid.columns if c.startswith('interval_')), None)
+        if interval_col:
+            dict_ids_with_data = set(df_vals_grid.loc[df_vals_grid[interval_col].notna(), 'dict_id'])
+        else:
+            dict_ids_with_data = set(dicts['vars']['id'])
+        for _, row in dicts['vars'].iterrows():
+            if row['id'] in dict_ids_with_data:
+                variable_to_grids.setdefault(row['variable_name'], set()).add(grid_key)
 
     # construir tabla diccionario unificada: todas las variables de todas las mallas, sin duplicados
     all_vars_frames = [dicts['vars'][['variable_name', 'metadata']] for dicts in df_dicts.values()]
