@@ -83,10 +83,10 @@ class Procesador:
         # asignacion de atributos
         self.dataframes_mallas = dataframes_mallas
         # mapeo: nombre que coincide con la columna del dataset -> alias legible
-        self.alias = dict(zip(dataframe_diccionario[columna_diccionario_nombres], dataframe_diccionario[columna_diccionario_alias]))
+        self.alias = dict(zip(dataframe_diccionario[columna_diccionario_nombres].astype(str), dataframe_diccionario[columna_diccionario_alias]))
         self.descripcion = {}
         if columna_diccionario_descripcion and columna_diccionario_descripcion in dataframe_diccionario.columns:
-            self.descripcion = dict(zip(dataframe_diccionario[columna_diccionario_nombres], dataframe_diccionario[columna_diccionario_descripcion]))
+            self.descripcion = dict(zip(dataframe_diccionario[columna_diccionario_nombres].astype(str), dataframe_diccionario[columna_diccionario_descripcion]))
             
         self.variables_identificadoras = variables_identificadoras
         self.variables_excluidas = set(variables_excluidas_list)
