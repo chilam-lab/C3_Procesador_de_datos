@@ -127,7 +127,7 @@ if __name__ == "__main__":
                             parts = s.split(':')
                             # manejar posibles espacios o vacios
                             return f"[{parts[0].strip()},{parts[1].strip()})"
-                        return val
+                        return None  # valores no-rango (e.g. "Sin clasificar") → NULL
                     df[col] = df[col].apply(transform_range)
                 else:
                     special_types[col] = "TEXT"
