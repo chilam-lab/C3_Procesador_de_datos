@@ -1,0 +1,26 @@
+{
+    "rutas_csv_mallas": {
+        "mun": "../data/denue/preprocessed/denue_codigo_act_por_municipios_matrix.csv"
+    },
+    "ruta_csv_diccionario_datos": "../data/denue/preprocessed/diccionario_denue_matrix_mun.csv",
+    "ruta_csv_salida": "../data/denue/processed/procesamiento_denue_matrix_mun.csv",
+    "columna_diccionario_nombres": "var",
+    "columna_diccionario_alias": "alias",
+    "columna_diccionario_descripcion": "description",
+    "variables_identificadoras_lugares": {
+        "mun": ["cvegeo"]
+    },
+    "variables_excluidas_list_lugares": [],
+    "variables_excluidas_regex_lugares": [],
+    "variables_a_procesar_list_lugares": {
+        "None": []
+    },
+    "variables_a_procesar_regex_lugares": {
+        "None": ["\\d{6}"]
+    },
+    "variables_a_procesar_list_presencia": [],
+    "variables_a_procesar_regex_presencia": [
+        "\\d{6}"
+    ],
+    "q": 10
+}

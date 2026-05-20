@@ -126,7 +126,6 @@ if __name__ == "__main__":
                         s = str(val).replace('%', '').strip()
                         if ':' in s:
                             parts = s.split(':')
-                            # manejar posibles espacios o vacios
                             return f"[{parts[0].strip()},{parts[1].strip()})"
                         return None  # valores no-rango (e.g. "Sin clasificar") → NULL
                     df[col] = df[col].apply(transform_range)
