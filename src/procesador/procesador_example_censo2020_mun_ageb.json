@@ -1,6 +1,6 @@
 {
     "rutas_csv_mallas": {
-        "mun":  "../data/censo2020/preprocessed/censo2020_mun.csv",
+        "mun": "../data/censo2020/preprocessed/censo2020_mun.csv",
         "ageb": "../data/censo2020/preprocessed/censo2020_ageb.csv"
     },
     "ruta_csv_diccionario_datos": "../data/censo2020/preprocessed/diccionario_censo2020.csv",
@@ -9,11 +9,17 @@
     "columna_diccionario_alias": "alias",
     "columna_diccionario_descripcion": "description",
     "variables_identificadoras_lugares": {
-        "mun":  ["cvegeo"],
-        "ageb": ["cvegeo"]
+        "mun": [
+            "cvegeo"
+        ],
+        "ageb": [
+            "cvegeo"
+        ]
     },
     "variables_a_procesar_regex_lugares": {
-        "None": ["[A-Z][A-Z0-9_]+"]
+        "None": [
+            "[A-Z][A-Z0-9_]+"
+        ]
     },
     "q": 10
 }
