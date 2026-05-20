@@ -169,6 +169,15 @@ if __name__ == "__main__":
         df_vals = df[val_cols_to_extract].copy()
         df_vals['id'] = df_vals.index + 1
 
+        # Excluir variables sin datos en esta malla (todas sus filas con interval nulo
+        # = variable existe en otra malla pero no en esta)
+        if interval_cols:
+            dict_ids_validos = set(df_vals.dropna(subset=interval_cols, how='all')['dict_id'])
+            df_vals = df_vals[df_vals['dict_id'].isin(dict_ids_validos)].reset_index(drop=True)
+            df_vals['id'] = df_vals.index + 1
+            df = df[df['dict_id'].isin(dict_ids_validos)].reset_index(drop=True)
+            df_vars = df_vars[df_vars['id'].isin(dict_ids_validos)]
+
         # columns for generating table
         val_cols_for_table = ['id', 'dict_id', 'bin'] + interval_cols
 
