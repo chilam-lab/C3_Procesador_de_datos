@@ -53,24 +53,44 @@ def test_non_category_columns_are_numeric():
     errors = []
     for _, row in diccionario_df.iterrows():
         column = row[COLUMN_DICCIONARIO_ALIAS]
-        values = ast.literal_eval(row["Values"])
-        if values.get("is_category") == "true":
+        if str(row["is_category"]).strip().lower() == "true":
             continue
         if column not in grid_df.columns:
             continue
-
         null_count = grid_df[column].isna().sum()
         blank_count = (grid_df[column].astype(str).str.strip() == "").sum()
         if null_count > 0:
             errors.append(f"Column '{column}' has {null_count} null/NaN values")
         if blank_count > 0:
             errors.append(f"Column '{column}' has {blank_count} blank values")
-
         non_numeric = grid_df[
             pd.to_numeric(grid_df[column], errors="coerce").isna() & grid_df[column].notna()
         ][column].unique()
         if len(non_numeric) > 0:
             errors.append(f"Column '{column}' has non-numeric values: {non_numeric.tolist()}")
+    assert not errors, "\n".join(errors)
 
+### VERIFY THAT NON-CATEGORY COLUMNS CONTAIN NUMERIC VALUES IN RANGE ####
+
+def test_non_category_columns_are_in_range():
+    errors = []
+    for _, row in diccionario_df.iterrows():
+        column = row[COLUMN_DICCIONARIO_ALIAS]
+        if str(row["is_category"]).strip().lower() == "true":
+            continue
+        if column not in grid_df.columns:
+            continue
+        values = ast.literal_eval(row["Values"])
+        min_val = values.get("min")
+        max_val = values.get("max")
+        if min_val is None or max_val is None:
+            continue
+        numeric_series = pd.to_numeric(grid_df[column], errors="coerce").dropna()
+        out_of_range = numeric_series[(numeric_series < min_val) | (numeric_series > max_val)]
+        if len(out_of_range) > 0:
+            errors.append(
+                f"Column '{column}' has {len(out_of_range)} values out of range "
+                f"[{min_val}, {max_val}]: {out_of_range.unique().tolist()}"
+            )
     assert not errors, "\n".join(errors)
 
