@@ -33,6 +33,50 @@ else:
 
 
 
+def test_alert_on_na_values_usage(capsys):
+    """Scans the dataset for N/A values and prompts the user before proceeding."""
+    # 1. Parse the allowed NA array
+    na_list = [val.strip().strip("'\"") for val in na_env.split(",") if val.strip()]
+    if not na_list or grid_df.empty:
+        return
+
+    na_instances = []
+
+    # 2. Scan every relevant data column for active NA instances
+    for _, row in diccionario_df.iterrows():
+        column_name = row[COLUMN_DICCIONARIO_ALIAS]
+        if column_name not in grid_df.columns:
+            continue
+
+        # Find row indices in grid_df where the value matches any N/A token
+        # Using string matching since dtype=str is active
+        is_na_mask = grid_df[column_name].astype(str).str.strip().isin(na_list)
+        matching_indices = grid_df[is_na_mask].index.tolist()
+
+        for idx in matching_indices:
+            actual_val = grid_df.loc[idx, column_name]
+            na_instances.append(f"  - Row {idx}, Column '{column_name}' (Value: '{actual_val}')")
+
+    # 3. If any N/A values were spotted, suspend Pytest capture and alert
+    if na_instances:
+        total_registers = len(na_instances)
+        
+        # This context manager opens up the real terminal line temporarily
+        with capsys.disabled():
+            print(f"\n\n============== [ N/A VALUES DETECTED ] ==============")
+            print(f"⚠️ I found {total_registers} registers using N/A placeholders:")
+            
+            # Print the first 10 rows so it doesn't flood the terminal screen
+            for item in na_instances[:10]:
+                print(item)
+            if total_registers > 10:
+                print(f"  ... and {total_registers - 10} more registers.")
+                
+            print("======================================================")
+            input("👉 Press [ENTER] to acknowledge and proceed...👀 ")
+            print("Resuming remaining validation suites...\n")
+
+
 ####################  VERIFY ALL FILES AVAILABLE ####################
 
 def test_diccionario_file_exists():
@@ -232,14 +276,12 @@ def test_non_category_columns_have_min_max_range():
     errors = []
     
     for index, row in diccionario_df.iterrows():
-        # 1. Only validate rows where is_category is explicitly False
         if str(row["is_category"]).strip().lower() != "false":
             continue
             
         column_name = row[COLUMN_DICCIONARIO_ALIAS]
         raw_values = row[COLUMN_DICCIONARIO_VALUES]
         
-        # 2. Ensure the cell contains data
         if pd.isna(raw_values) or not str(raw_values).strip():
             errors.append(
                 f"Row {index} (Column '{column_name}'): 'is_category' is False, "
@@ -247,7 +289,6 @@ def test_non_category_columns_have_min_max_range():
             )
             continue
             
-        # 3. Parse the string value safely
         try:
             values_dict = ast.literal_eval(raw_values)
         except (ValueError, SyntaxError) as e:
@@ -257,7 +298,6 @@ def test_non_category_columns_have_min_max_range():
             )
             continue
             
-        # 4. Check if the parsed output is actually a dictionary structure
         if not isinstance(values_dict, dict):
             errors.append(
                 f"Row {index} (Column '{column_name}'): '{COLUMN_DICCIONARIO_VALUES}' "
@@ -265,7 +305,6 @@ def test_non_category_columns_have_min_max_range():
             )
             continue
             
-        # 5. Enforce the presence of both 'min' and 'max' keys
         missing_keys = [key for key in ["min", "max"] if key not in values_dict]
         if missing_keys:
             errors.append(
