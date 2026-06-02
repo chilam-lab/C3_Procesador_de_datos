@@ -11,6 +11,10 @@ CSV_OUTPUT_PATH = os.getenv("ruta_csv_salida")
 COLUMN_DICCIONARIO_NOMBRES = os.getenv("columna_diccionario_nombres")
 COLUMN_DICCIONARIO_ALIAS = os.getenv("columna_diccionario_alias", "var")
 COLUMN_DICCIONARIO_DESCRIPCION = os.getenv("columna_diccionario_descripcion")
+COLUMN_DICCIONARIO_DESCRIPCION = os.getenv("columna_diccionario_descripcion")
+COLUMN_DICCIONARIO_VALUES = os.getenv("columna_diccionario_values", "Values")
+
+na_env = os.getenv("NA_VARIABLE", "na")
 
 GRID_CSV_PATH = json.loads(os.getenv("rutas_csv_mallas", "{}"))
 GRID_CSV_MUN_PATH = GRID_CSV_PATH["mun"]
@@ -156,3 +160,66 @@ def test_category_columns_have_valid_values_dict():
                 )
 
     assert not errors, "Category dictionary validation failed:\n" + "\n".join(errors)
+
+### VERIFY THAT CATEGORY DATA VALUES MATCH THEIR DEFINITIONS IN THE DICTIONARY ####
+
+def test_category_data_matches_dynamic_dictionary_values():
+    # 1. Parse the N/A variables from the environment
+    na_list = [val.strip().strip("'\"") for val in na_env.split(",") if val.strip()]
+    
+    errors = []
+
+    for index, row in diccionario_df.iterrows():
+        # Only check rows where is_category is explicitly True
+        if str(row["is_category"]).strip().lower() != "true":
+            continue
+
+        column_name = row[COLUMN_DICCIONARIO_ALIAS]
+        
+        # Skip if the column defined in the dictionary doesn't exist in the grid data
+        if column_name not in grid_df.columns:
+            continue
+
+        raw_values = row[COLUMN_DICCIONARIO_VALUES]
+
+        # 2. Fail if the 'Values' definition cell itself is empty in the CSV
+        if pd.isna(raw_values) or not str(raw_values).strip():
+            errors.append(f"Row {index} (Column '{column_name}'): 'is_category' is True, but the dictionary 'Values' definition is empty.")
+            continue
+
+        try:
+            values_dict = ast.literal_eval(raw_values)
+        except (ValueError, SyntaxError) as e:
+            errors.append(f"Row {index} (Column '{column_name}'): Failed to parse 'Values' dict structure. Error: {e}")
+            continue
+
+        if not isinstance(values_dict, dict) or not values_dict:
+            errors.append(f"Row {index} (Column '{column_name}'): 'Values' dictionary structure cannot be empty.")
+            continue
+
+        # 3. DYNAMICALLY extract the valid targets from the dictionary values mapping
+        allowed_from_dict = [str(v).strip() for v in values_dict.values()]
+        allowed_values = set(allowed_from_dict).union(na_list)
+
+        # 4. Extract actual values present in this grid data column
+        column_data = grid_df[column_name]
+        
+        # Fail if the data column has no values at all
+        if column_data.empty:
+            errors.append(f"Column '{column_name}': The data column is completely empty.")
+            continue
+
+        # Convert data entries to stripped strings to ensure clean matching
+        # (This turns pandas NaN values into the string 'nan' and blanks into '')
+        actual_values = set(column_data.astype(str).str.strip().unique())
+
+        # 5. Check if any unexpected values (or unallowed empty/nan values) exist
+        invalid_values = [v for v in actual_values if v not in allowed_values]
+        
+        if invalid_values:
+            errors.append(
+                f"Column '{column_name}' contains invalid values: {invalid_values}. "
+                f"Based on your dictionary, allowed values are: {sorted(list(allowed_values))}"
+            )
+
+    assert not errors, "Category data alignment validation failed:\n" + "\n".join(errors)
