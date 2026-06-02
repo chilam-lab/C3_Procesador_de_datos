@@ -14,14 +14,14 @@ COLUMN_DICCIONARIO_DESCRIPCION = os.getenv("columna_diccionario_descripcion")
 COLUMN_DICCIONARIO_DESCRIPCION = os.getenv("columna_diccionario_descripcion")
 COLUMN_DICCIONARIO_VALUES = os.getenv("columna_diccionario_values", "Values")
 
-na_env = os.getenv("NA_VARIABLE", "na")
+na_env = os.getenv("NA_VALUES", "na")
 
 GRID_CSV_PATH = json.loads(os.getenv("rutas_csv_mallas", "{}"))
 GRID_CSV_MUN_PATH = GRID_CSV_PATH["mun"]
 
 
 if GRID_CSV_MUN_PATH and os.path.exists(GRID_CSV_MUN_PATH):
-    grid_df = pd.read_csv(GRID_CSV_MUN_PATH)
+    grid_df = pd.read_csv(GRID_CSV_MUN_PATH, dtype=str)
 else:
     grid_df = pd.DataFrame()
 
@@ -46,6 +46,8 @@ def test_mallas_files_exist(key, file_path):
     assert file_path is not None, f"Path for key '{key}' is None"
     assert os.path.exists(file_path), f"File for '{key}' not found at path: {file_path}"
 
+
+
 ############ VERIFY INTEGRITY OF DICTIONARY.CSV ####################
 
 def test_diccionario_has_column_nombres():
@@ -57,12 +59,16 @@ def test_diccionario_has_column_alias():
 def test_diccionario_has_column_descripcion():
     assert COLUMN_DICCIONARIO_DESCRIPCION in diccionario_df.columns, f"Column '{COLUMN_DICCIONARIO_DESCRIPCION}' not found"
 
+
+
 ######## VERIFY columns defined in dictionary.csv exist in data.csv ####
 
 def test_alias_var_columns_exist_in_mallas():
     expected_columns = diccionario_df[COLUMN_DICCIONARIO_ALIAS].tolist()
     missing = [col for col in expected_columns if col not in grid_df.columns]
     assert not missing, f"Missing columns in mallas ({len(missing)}): {missing}"
+
+
 
 ### VERIFY THAT NON-CATEGORY COLUMNS CONTAIN NUMERIC VALUES AND ARE NOT BLANK ####
 
@@ -87,6 +93,8 @@ def test_non_category_columns_are_numeric():
             errors.append(f"Column '{column}' has non-numeric values: {non_numeric.tolist()}")
     assert not errors, "\n".join(errors)
 
+
+
 ### VERIFY THAT NON-CATEGORY COLUMNS CONTAIN NUMERIC VALUES IN RANGE ####
 
 def test_non_category_columns_are_in_range():
@@ -110,6 +118,8 @@ def test_non_category_columns_are_in_range():
                 f"[{min_val}, {max_val}]: {out_of_range.unique().tolist()}"
             )
     assert not errors, "\n".join(errors)
+
+
 
 
 ### VERIFY THAT CATEGORY COLUMNS HAVE VALID DICTIONARY STRUCTURES ####
@@ -161,28 +171,24 @@ def test_category_columns_have_valid_values_dict():
 
     assert not errors, "Category dictionary validation failed:\n" + "\n".join(errors)
 
+
+
 ### VERIFY THAT CATEGORY DATA VALUES MATCH THEIR DEFINITIONS IN THE DICTIONARY ####
 
 def test_category_data_matches_dynamic_dictionary_values():
-    # 1. Parse the N/A variables from the environment
     na_list = [val.strip().strip("'\"") for val in na_env.split(",") if val.strip()]
-    
     errors = []
-
     for index, row in diccionario_df.iterrows():
-        # Only check rows where is_category is explicitly True
         if str(row["is_category"]).strip().lower() != "true":
             continue
 
         column_name = row[COLUMN_DICCIONARIO_ALIAS]
         
-        # Skip if the column defined in the dictionary doesn't exist in the grid data
         if column_name not in grid_df.columns:
             continue
 
         raw_values = row[COLUMN_DICCIONARIO_VALUES]
 
-        # 2. Fail if the 'Values' definition cell itself is empty in the CSV
         if pd.isna(raw_values) or not str(raw_values).strip():
             errors.append(f"Row {index} (Column '{column_name}'): 'is_category' is True, but the dictionary 'Values' definition is empty.")
             continue
@@ -197,23 +203,17 @@ def test_category_data_matches_dynamic_dictionary_values():
             errors.append(f"Row {index} (Column '{column_name}'): 'Values' dictionary structure cannot be empty.")
             continue
 
-        # 3. DYNAMICALLY extract the valid targets from the dictionary values mapping
         allowed_from_dict = [str(v).strip() for v in values_dict.values()]
         allowed_values = set(allowed_from_dict).union(na_list)
 
-        # 4. Extract actual values present in this grid data column
         column_data = grid_df[column_name]
         
-        # Fail if the data column has no values at all
         if column_data.empty:
             errors.append(f"Column '{column_name}': The data column is completely empty.")
             continue
 
-        # Convert data entries to stripped strings to ensure clean matching
-        # (This turns pandas NaN values into the string 'nan' and blanks into '')
         actual_values = set(column_data.astype(str).str.strip().unique())
 
-        # 5. Check if any unexpected values (or unallowed empty/nan values) exist
         invalid_values = [v for v in actual_values if v not in allowed_values]
         
         if invalid_values:
@@ -223,3 +223,54 @@ def test_category_data_matches_dynamic_dictionary_values():
             )
 
     assert not errors, "Category data alignment validation failed:\n" + "\n".join(errors)
+
+
+
+### VERIFY THAT NON-CATEGORY COLUMNS HAVE MIN AND MAX RANGE DEFINITIONS ####
+
+def test_non_category_columns_have_min_max_range():
+    errors = []
+    
+    for index, row in diccionario_df.iterrows():
+        # 1. Only validate rows where is_category is explicitly False
+        if str(row["is_category"]).strip().lower() != "false":
+            continue
+            
+        column_name = row[COLUMN_DICCIONARIO_ALIAS]
+        raw_values = row[COLUMN_DICCIONARIO_VALUES]
+        
+        # 2. Ensure the cell contains data
+        if pd.isna(raw_values) or not str(raw_values).strip():
+            errors.append(
+                f"Row {index} (Column '{column_name}'): 'is_category' is False, "
+                f"but '{COLUMN_DICCIONARIO_VALUES}' is empty."
+            )
+            continue
+            
+        # 3. Parse the string value safely
+        try:
+            values_dict = ast.literal_eval(raw_values)
+        except (ValueError, SyntaxError) as e:
+            errors.append(
+                f"Row {index} (Column '{column_name}'): Failed to parse '{COLUMN_DICCIONARIO_VALUES}'. "
+                f"Error: {e}"
+            )
+            continue
+            
+        # 4. Check if the parsed output is actually a dictionary structure
+        if not isinstance(values_dict, dict):
+            errors.append(
+                f"Row {index} (Column '{column_name}'): '{COLUMN_DICCIONARIO_VALUES}' "
+                f"must be a dictionary object, got {type(values_dict).__name__}."
+            )
+            continue
+            
+        # 5. Enforce the presence of both 'min' and 'max' keys
+        missing_keys = [key for key in ["min", "max"] if key not in values_dict]
+        if missing_keys:
+            errors.append(
+                f"Row {index} (Column '{column_name}'): Missing required continuous range keys {missing_keys}. "
+                f"Found keys: {list(values_dict.keys())}"
+            )
+
+    assert not errors, "Non-category structural range validation failed:\n" + "\n".join(errors)
