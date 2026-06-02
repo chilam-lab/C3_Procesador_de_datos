@@ -12,11 +12,21 @@ COLUMN_DICCIONARIO_NOMBRES = os.getenv("columna_diccionario_nombres")
 COLUMN_DICCIONARIO_ALIAS = os.getenv("columna_diccionario_alias", "var")
 COLUMN_DICCIONARIO_DESCRIPCION = os.getenv("columna_diccionario_descripcion")
 
-GRID_CSV_PATH = json.loads(os.getenv("rutas_csv_mallas"))
+GRID_CSV_PATH = json.loads(os.getenv("rutas_csv_mallas", "{}"))
 GRID_CSV_MUN_PATH = GRID_CSV_PATH["mun"]
 
-grid_df = pd.read_csv(GRID_CSV_MUN_PATH)
-diccionario_df = pd.read_csv(DICCIONARIO_PATH)
+
+if GRID_CSV_MUN_PATH and os.path.exists(GRID_CSV_MUN_PATH):
+    grid_df = pd.read_csv(GRID_CSV_MUN_PATH)
+else:
+    grid_df = pd.DataFrame()
+
+if DICCIONARIO_PATH and os.path.exists(DICCIONARIO_PATH):
+    diccionario_df = pd.read_csv(DICCIONARIO_PATH)
+else:
+    diccionario_df = pd.DataFrame()
+
+
 
 
 ####################  VERIFY ALL FILES AVAILABLE ####################
@@ -25,9 +35,12 @@ def test_diccionario_file_exists():
     assert DICCIONARIO_PATH is not None, "ruta_csv_diccionario_datos is not set"
     assert os.path.exists(DICCIONARIO_PATH), f"File not found: {DICCIONARIO_PATH}"
 
-def test_mallas_mun_file_exists():
-    assert GRID_CSV_MUN_PATH is not None, "rutas_csv_mallas.mun is not set"
-    assert os.path.exists(GRID_CSV_MUN_PATH), f"File not found: {GRID_CSV_MUN_PATH}"
+# Dynamic test for all keys found inside the json
+@pytest.mark.parametrize("key, file_path", GRID_CSV_PATH.items())
+def test_mallas_files_exist(key, file_path):
+    """Dynamically checks if every file specified in 'rutas_csv_mallas' exists."""
+    assert file_path is not None, f"Path for key '{key}' is None"
+    assert os.path.exists(file_path), f"File for '{key}' not found at path: {file_path}"
 
 ############ VERIFY INTEGRITY OF DICTIONARY.CSV ####################
 
