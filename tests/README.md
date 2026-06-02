@@ -17,6 +17,10 @@ Make sure to have this env vars with the right path inside you dictionary.json
 "columna_diccionario_nombres": "var",
 "columna_diccionario_alias": "var_alias",
 "columna_diccionario_descripcion": "Description",
+"columna_diccionario_values": "Values",           // name of values column in csv
+"NA_VALUES": "na",                                // default n/a values in csv
+
+
 
 # TO DEFINE
 "formato_columna_fecha": "AAAA-MM-DD",
