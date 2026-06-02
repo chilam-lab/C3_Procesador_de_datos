@@ -107,3 +107,52 @@ def test_non_category_columns_are_in_range():
             )
     assert not errors, "\n".join(errors)
 
+
+### VERIFY THAT CATEGORY COLUMNS HAVE VALID DICTIONARY STRUCTURES ####
+
+def test_category_columns_have_valid_values_dict():
+    errors = []
+    
+    for index, row in diccionario_df.iterrows():
+        # 1. Check if is_category is explicitly True
+        if str(row["is_category"]).strip().lower() != "true":
+            continue
+            
+        column_name = row[COLUMN_DICCIONARIO_ALIAS]
+        raw_values = row["Values"]
+        
+        # 2. Ensure the Values column isn't empty
+        if pd.isna(raw_values) or not str(raw_values).strip():
+            errors.append(f"Row {index} (Column '{column_name}'): 'is_category' is True, but 'Values' is empty.")
+            continue
+            
+        # 3. Try to parse the string into a Python dictionary
+        try:
+            values_dict = ast.literal_eval(raw_values)
+        except (ValueError, SyntaxError) as e:
+            errors.append(f"Row {index} (Column '{column_name}'): Failed to parse 'Values'. Error: {e}")
+            continue
+            
+        # 4. Verify it's actually a dictionary structure
+        if not isinstance(values_dict, dict):
+            errors.append(f"Row {index} (Column '{column_name}'): 'Values' must be a dictionary, got {type(values_dict).__name__}.")
+            continue
+            
+        # 5. Validate that keys are numeric and values are strings
+        for k, v in values_dict.items():
+            # Check if key is an integer/float, or a string that represents an integer
+            is_numeric_key = isinstance(k, (int, float)) or (isinstance(k, str) and k.strip().isdigit())
+            
+            if not is_numeric_key:
+                errors.append(
+                    f"Row {index} (Column '{column_name}'): Invalid key '{k}' ({type(k).__name__}). "
+                    f"Keys must be numeric."
+                )
+            
+            if not isinstance(v, str):
+                errors.append(
+                    f"Row {index} (Column '{column_name}'): Invalid value '{v}' ({type(v).__name__}) for key '{k}'. "
+                    f"Values must be strings."
+                )
+
+    assert not errors, "Category dictionary validation failed:\n" + "\n".join(errors)
