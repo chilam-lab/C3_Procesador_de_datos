@@ -118,23 +118,34 @@ def test_alias_var_columns_exist_in_mallas():
 
 def test_non_category_columns_are_numeric():
     errors = []
+    na_list = [val.strip().strip("'\"") for val in na_env.split(",") if val.strip()]
+
     for _, row in diccionario_df.iterrows():
         column = row[COLUMN_DICCIONARIO_ALIAS]
+        
         if str(row["is_category"]).strip().lower() == "true":
             continue
         if column not in grid_df.columns:
             continue
-        null_count = grid_df[column].isna().sum()
-        blank_count = (grid_df[column].astype(str).str.strip() == "").sum()
+            
+        is_na_mask = grid_df[column].astype(str).str.strip().isin(na_list)
+        valid_data = grid_df[~is_na_mask][column]
+
+        null_count = valid_data.isna().sum()
+        blank_count = (valid_data.astype(str).str.strip() == "").sum()
+        
         if null_count > 0:
             errors.append(f"Column '{column}' has {null_count} null/NaN values")
         if blank_count > 0:
             errors.append(f"Column '{column}' has {blank_count} blank values")
-        non_numeric = grid_df[
-            pd.to_numeric(grid_df[column], errors="coerce").isna() & grid_df[column].notna()
-        ][column].unique()
+            
+        non_numeric = valid_data[
+            pd.to_numeric(valid_data, errors="coerce").isna() & valid_data.notna()
+        ].unique()
+        
         if len(non_numeric) > 0:
             errors.append(f"Column '{column}' has non-numeric values: {non_numeric.tolist()}")
+            
     assert not errors, "\n".join(errors)
 
 
@@ -143,27 +154,40 @@ def test_non_category_columns_are_numeric():
 
 def test_non_category_columns_are_in_range():
     errors = []
+    # Parse the allowed NA array
+    na_list = [val.strip().strip("'\"") for val in na_env.split(",") if val.strip()]
+
     for _, row in diccionario_df.iterrows():
         column = row[COLUMN_DICCIONARIO_ALIAS]
+        
         if str(row["is_category"]).strip().lower() == "true":
             continue
         if column not in grid_df.columns:
             continue
+            
         values = ast.literal_eval(row["Values"])
         min_val = values.get("min")
         max_val = values.get("max")
+        
         if min_val is None or max_val is None:
             continue
-        numeric_series = pd.to_numeric(grid_df[column], errors="coerce").dropna()
+
+        # 1. Filter out the allowed NA values so they aren't coerced into NaN and dropped silently, 
+        # or flagged if you later decide to track dropped strings.
+        is_na_mask = grid_df[column].astype(str).str.strip().isin(na_list)
+        valid_data = grid_df[~is_na_mask][column]
+
+        # 2. Check ranges on the remaining numeric data
+        numeric_series = pd.to_numeric(valid_data, errors="coerce").dropna()
         out_of_range = numeric_series[(numeric_series < min_val) | (numeric_series > max_val)]
+        
         if len(out_of_range) > 0:
             errors.append(
                 f"Column '{column}' has {len(out_of_range)} values out of range "
                 f"[{min_val}, {max_val}]: {out_of_range.unique().tolist()}"
             )
+            
     assert not errors, "\n".join(errors)
-
-
 
 
 ### VERIFY THAT CATEGORY COLUMNS HAVE VALID DICTIONARY STRUCTURES ####
