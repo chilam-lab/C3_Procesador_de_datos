@@ -6,7 +6,7 @@
 You need to define this env var inside your .env file or your dictionary.json
 ```Javascript
 columna_diccionario_formato="FORMATO O FUENTE"
-DICTIONARY_JSON_PATH=dictionary.json
+CONFIGURATION_JSON_PATH=configuration.json
 ```
 
 Make sure to have this env vars with the right path inside you dictionary.json

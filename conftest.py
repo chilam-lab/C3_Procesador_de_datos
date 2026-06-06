@@ -7,7 +7,7 @@ env_path = Path(os.getcwd()) / ".env"
 print(f"\n>>> Loading environment from: {env_path}")
 load_dotenv(dotenv_path=env_path)
 
-dict_path = os.getenv("DICTIONARY_JSON_PATH")
+dict_path = os.getenv("CONFIGURATION_JSON_PATH")
 
 if dict_path:
     full_dict_path = Path(os.getcwd()) / dict_path
