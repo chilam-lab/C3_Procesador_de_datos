@@ -20,10 +20,14 @@ GRID_CSV_PATH = json.loads(os.getenv("rutas_csv_mallas", "{}"))
 GRID_CSV_MUN_PATH = GRID_CSV_PATH["mun"]
 
 
-if GRID_CSV_MUN_PATH and os.path.exists(GRID_CSV_MUN_PATH):
-    grid_df = pd.read_csv(GRID_CSV_MUN_PATH, dtype=str)
-else:
-    grid_df = pd.DataFrame()
+valid_grids = [(key, path) for key, path in GRID_CSV_PATH.items() if os.path.exists(path)]
+
+@pytest.fixture(params=valid_grids, ids=lambda param: param)
+def dynamic_grid_df(request):
+    """Loads each dataset dynamically. Tests using this fixture run once per file."""
+    file_key, file_path = request.param
+    df = pd.read_csv(file_path, dtype=str)
+    return file_key, df, file_path
 
 if DICCIONARIO_PATH and os.path.exists(DICCIONARIO_PATH):
     diccionario_df = pd.read_csv(DICCIONARIO_PATH)
@@ -33,23 +37,21 @@ else:
 
 
 
-def test_alert_on_na_values_usage(capsys):
+def test_alert_on_na_values_usage(capsys, dynamic_grid_df):
     """Scans the dataset for N/A values and prompts the user before proceeding."""
-    # 1. Parse the allowed NA array
+    file_key, grid_df, file_path = dynamic_grid_df
     na_list = [val.strip().strip("'\"") for val in na_env.split(",") if val.strip()]
+    
     if not na_list or grid_df.empty:
         return
 
     na_instances = []
 
-    # 2. Scan every relevant data column for active NA instances
     for _, row in diccionario_df.iterrows():
         column_name = row[COLUMN_DICCIONARIO_ALIAS]
         if column_name not in grid_df.columns:
             continue
 
-        # Find row indices in grid_df where the value matches any N/A token
-        # Using string matching since dtype=str is active
         is_na_mask = grid_df[column_name].astype(str).str.strip().isin(na_list)
         matching_indices = grid_df[is_na_mask].index.tolist()
 
@@ -57,21 +59,15 @@ def test_alert_on_na_values_usage(capsys):
             actual_val = grid_df.loc[idx, column_name]
             na_instances.append(f"  - Row {idx}, Column '{column_name}' (Value: '{actual_val}')")
 
-    # 3. If any N/A values were spotted, suspend Pytest capture and alert
     if na_instances:
         total_registers = len(na_instances)
-        
-        # This context manager opens up the real terminal line temporarily
         with capsys.disabled():
-            print(f"\n\n============== [ N/A VALUES DETECTED ] ==============")
+            print(f"\n\n============== [ N/A VALUES DETECTED IN: {file_path} ] ==============")
             print(f"⚠️ I found {total_registers} registers using N/A placeholders:")
-            
-            # Print the first 10 rows so it doesn't flood the terminal screen
             for item in na_instances[:10]:
                 print(item)
             if total_registers > 10:
                 print(f"  ... and {total_registers - 10} more registers.")
-                
             print("======================================================")
             input("👉 Press [ENTER] to acknowledge and proceed...👀 ")
             print("Resuming remaining validation suites...\n")
@@ -107,16 +103,18 @@ def test_diccionario_has_column_descripcion():
 
 ######## VERIFY columns defined in dictionary.csv exist in data.csv ####
 
-def test_alias_var_columns_exist_in_mallas():
+def test_alias_var_columns_exist_in_mallas(dynamic_grid_df):
+    file_key, grid_df, file_path = dynamic_grid_df
     expected_columns = diccionario_df[COLUMN_DICCIONARIO_ALIAS].tolist()
     missing = [col for col in expected_columns if col not in grid_df.columns]
-    assert not missing, f"Missing columns in mallas ({len(missing)}): {missing}"
+    assert not missing, f"[{file_path}] Missing columns in mallas ({len(missing)}): {missing}"
 
 
 
 ### VERIFY THAT NON-CATEGORY COLUMNS CONTAIN NUMERIC VALUES AND ARE NOT BLANK ####
 
-def test_non_category_columns_are_numeric():
+def test_non_category_columns_are_numeric(dynamic_grid_df):
+    file_key, grid_df, file_path = dynamic_grid_df
     errors = []
     na_list = [val.strip().strip("'\"") for val in na_env.split(",") if val.strip()]
 
@@ -135,16 +133,16 @@ def test_non_category_columns_are_numeric():
         blank_count = (valid_data.astype(str).str.strip() == "").sum()
         
         if null_count > 0:
-            errors.append(f"Column '{column}' has {null_count} null/NaN values")
+            errors.append(f"[{file_path}] Column '{column}' has {null_count} null/NaN values")
         if blank_count > 0:
-            errors.append(f"Column '{column}' has {blank_count} blank values")
+            errors.append(f"[{file_path}] Column '{column}' has {blank_count} blank values")
             
         non_numeric = valid_data[
             pd.to_numeric(valid_data, errors="coerce").isna() & valid_data.notna()
         ].unique()
         
         if len(non_numeric) > 0:
-            errors.append(f"Column '{column}' has non-numeric values: {non_numeric.tolist()}")
+            errors.append(f"[{file_path}] Column '{column}' has non-numeric values: {non_numeric.tolist()}")
             
     assert not errors, "\n".join(errors)
 
@@ -152,9 +150,9 @@ def test_non_category_columns_are_numeric():
 
 ### VERIFY THAT NON-CATEGORY COLUMNS CONTAIN NUMERIC VALUES IN RANGE ####
 
-def test_non_category_columns_are_in_range():
+def test_non_category_columns_are_in_range(dynamic_grid_df):
+    file_key, grid_df, file_path = dynamic_grid_df
     errors = []
-    # Parse the allowed NA array
     na_list = [val.strip().strip("'\"") for val in na_env.split(",") if val.strip()]
 
     for _, row in diccionario_df.iterrows():
@@ -172,18 +170,15 @@ def test_non_category_columns_are_in_range():
         if min_val is None or max_val is None:
             continue
 
-        # 1. Filter out the allowed NA values so they aren't coerced into NaN and dropped silently, 
-        # or flagged if you later decide to track dropped strings.
         is_na_mask = grid_df[column].astype(str).str.strip().isin(na_list)
         valid_data = grid_df[~is_na_mask][column]
 
-        # 2. Check ranges on the remaining numeric data
         numeric_series = pd.to_numeric(valid_data, errors="coerce").dropna()
         out_of_range = numeric_series[(numeric_series < min_val) | (numeric_series > max_val)]
         
         if len(out_of_range) > 0:
             errors.append(
-                f"Column '{column}' has {len(out_of_range)} values out of range "
+                f"[{file_path}] Column '{column}' has {len(out_of_range)} values out of range "
                 f"[{min_val}, {max_val}]: {out_of_range.unique().tolist()}"
             )
             
@@ -243,9 +238,11 @@ def test_category_columns_have_valid_values_dict():
 
 ### VERIFY THAT CATEGORY DATA VALUES MATCH THEIR DEFINITIONS IN THE DICTIONARY ####
 
-def test_category_data_matches_dynamic_dictionary_values():
+def test_category_data_matches_dynamic_dictionary_values(dynamic_grid_df):
+    file_key, grid_df, file_path = dynamic_grid_df
     na_list = [val.strip().strip("'\"") for val in na_env.split(",") if val.strip()]
     errors = []
+    
     for index, row in diccionario_df.iterrows():
         if str(row["is_category"]).strip().lower() != "true":
             continue
@@ -258,17 +255,14 @@ def test_category_data_matches_dynamic_dictionary_values():
         raw_values = row[COLUMN_DICCIONARIO_VALUES]
 
         if pd.isna(raw_values) or not str(raw_values).strip():
-            errors.append(f"Row {index} (Column '{column_name}'): 'is_category' is True, but the dictionary 'Values' definition is empty.")
             continue
 
         try:
             values_dict = ast.literal_eval(raw_values)
         except (ValueError, SyntaxError) as e:
-            errors.append(f"Row {index} (Column '{column_name}'): Failed to parse 'Values' dict structure. Error: {e}")
             continue
 
         if not isinstance(values_dict, dict) or not values_dict:
-            errors.append(f"Row {index} (Column '{column_name}'): 'Values' dictionary structure cannot be empty.")
             continue
 
         allowed_from_dict = [str(v).strip() for v in values_dict.values()]
@@ -277,16 +271,15 @@ def test_category_data_matches_dynamic_dictionary_values():
         column_data = grid_df[column_name]
         
         if column_data.empty:
-            errors.append(f"Column '{column_name}': The data column is completely empty.")
+            errors.append(f"[{file_path}] Column '{column_name}': The data column is completely empty.")
             continue
 
         actual_values = set(column_data.astype(str).str.strip().unique())
-
         invalid_values = [v for v in actual_values if v not in allowed_values]
         
         if invalid_values:
             errors.append(
-                f"Column '{column_name}' contains invalid values: {invalid_values}. "
+                f"[{file_path}] Column '{column_name}' contains invalid values: {invalid_values}. "
                 f"Based on your dictionary, allowed values are: {sorted(list(allowed_values))}"
             )
 
