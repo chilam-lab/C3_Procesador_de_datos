@@ -148,11 +148,12 @@ if __name__ == "__main__":
             return base
 
         # 1. Tabla dict (una fila por variable derivada: code)
-        df_vars = df[['code', 'name', 'descripcion']].drop_duplicates(subset=['code']).reset_index(drop=True)
+        base_cols = ['code', 'name', 'descripcion'] + (['path'] if 'path' in df.columns else [])
+        df_vars = df[base_cols].drop_duplicates(subset=['code']).reset_index(drop=True)
         df_vars['metadata'] = df_vars.apply(lambda row: json.dumps({
             'descripcion': row['descripcion'] if pd.notna(row['descripcion']) else None,
             'alias': row['name'],
-            'path': _get_path(row['code'])
+            'path': f"dict_{row['path']}/{_get_path(row['code'])}" if ('path' in row.index and pd.notna(row['path'])) else _get_path(row['code'])
         }, ensure_ascii=False), axis=1)
         df_vars = df_vars.rename(columns={'code': 'variable_name'})
         df_vars['id'] = df_vars.index + 1

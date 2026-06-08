@@ -12,7 +12,7 @@ class Procesador:
     realizando operaciones de normalización y categorización, para generar un nuevo archivo como resultado.
     Todos DataFrames que toma como atributos esta clase son generados por la clase Preprocesador.
     """
-    def __init__(self, dataframes_mallas:dict, dataframe_diccionario:pd.DataFrame, columna_diccionario_nombres:str, columna_diccionario_alias:str, variables_identificadoras:dict, variables_excluidas_list:list, variables_excluidas_regex:list, columna_diccionario_descripcion:str=None):
+    def __init__(self, dataframes_mallas:dict, dataframe_diccionario:pd.DataFrame, columna_diccionario_nombres:str, columna_diccionario_alias:str, variables_identificadoras:dict, variables_excluidas_list:list, variables_excluidas_regex:list, columna_diccionario_descripcion:str=None, columna_diccionario_path:str=None):
         """
         Inicializa el procesador validando los parámetros y configurando las variables a excluir.
 
@@ -87,6 +87,9 @@ class Procesador:
         self.descripcion = {}
         if columna_diccionario_descripcion and columna_diccionario_descripcion in dataframe_diccionario.columns:
             self.descripcion = dict(zip(dataframe_diccionario[columna_diccionario_nombres].astype(str), dataframe_diccionario[columna_diccionario_descripcion]))
+        self.path = {}
+        if columna_diccionario_path and columna_diccionario_path in dataframe_diccionario.columns:
+            self.path = dict(zip(dataframe_diccionario[columna_diccionario_nombres].astype(str), dataframe_diccionario[columna_diccionario_path]))
             
         self.variables_identificadoras = variables_identificadoras
         self.variables_excluidas = set(variables_excluidas_list)
@@ -322,9 +325,10 @@ class Procesador:
             'name': [],
             'code': [],
             'descripcion': [],
+            'path': [],
             'bin': []
         }
-        
+
         # inicializar diccionarios para verificar si var y var_base_normalizacion existen en las mallas,
         # cada malla es una llave, y el valor es True o False dependiendo si la variable se encuentra en el dataframe de la malla
         validacion_mallas_var = {malla:False for malla in mallas}
@@ -364,7 +368,8 @@ class Procesador:
         nombre = self.alias[var]
         codigo = var
         descripcion = self.descripcion.get(var, pd.NA) if hasattr(self, 'descripcion') else pd.NA
-        
+        path = self.path.get(var, pd.NA) if self.path else pd.NA
+
         # inicializar diccionario para almacenar la lista de intervalos generados en cada malla de manera ordenada
         # el diccionario intervalos_ordenados_mallas se va a ver de la siguiente forma: 
         # {
@@ -431,10 +436,11 @@ class Procesador:
         # se eliminaran los bins donde ninguna malla haya generado un intervalo en ese bin (se tienen valores nulos pd.NA en las columnas de ese bin)
         for i in range(q+1):
             
-            # agregar name, code, descripcion y bin al resultado
+            # agregar name, code, descripcion, path y bin al resultado
             resultado['name'].append(nombre)
             resultado['code'].append(codigo)
             resultado['descripcion'].append(descripcion)
+            resultado['path'].append(path)
             resultado['bin'].append(i+1)
             
             for malla in mallas:
@@ -508,11 +514,13 @@ class Procesador:
         nombre = self.alias[var]
         codigo = f'{var}::presencia'
         descripcion = self.descripcion.get(var, pd.NA) if hasattr(self, 'descripcion') else pd.NA
+        path = self.path.get(var, pd.NA) if self.path else pd.NA
 
         resultado = {
             'name': [nombre],
             'code': [codigo],
             'descripcion': [descripcion],
+            'path': [path],
             'bin': [pd.NA],
         }
 

@@ -17,6 +17,7 @@ def ejecutar_procesamiento_presencia(
     variables_excluidas_regex,
     variables_a_procesar_list_presencia,
     variables_a_procesar_regex_presencia,
+    columna_diccionario_path=None,
 ):
     """
     Ejecuta el flujo de procesamiento de presencia: para cada variable, genera la lista
@@ -28,6 +29,7 @@ def ejecutar_procesamiento_presencia(
         columna_diccionario_nombres=columna_diccionario_nombres,
         columna_diccionario_alias=columna_diccionario_alias,
         columna_diccionario_descripcion=columna_diccionario_descripcion,
+        columna_diccionario_path=columna_diccionario_path,
         variables_identificadoras=variables_identificadoras,
         variables_excluidas_list=variables_excluidas_list,
         variables_excluidas_regex=variables_excluidas_regex,
@@ -71,7 +73,8 @@ def ejecutar_procesamiento(
     variables_excluidas_regex,
     variables_a_procesar_list,
     variables_a_procesar_regex,
-    q
+    q,
+    columna_diccionario_path=None,
 ):
     """
     Ejecuta el flujo de procesamiento para un conjunto de variables y configuraciones.
@@ -83,6 +86,7 @@ def ejecutar_procesamiento(
         columna_diccionario_nombres=columna_diccionario_nombres,
         columna_diccionario_alias=columna_diccionario_alias,
         columna_diccionario_descripcion=columna_diccionario_descripcion,
+        columna_diccionario_path=columna_diccionario_path,
         variables_identificadoras=variables_identificadoras,
         variables_excluidas_list=variables_excluidas_list,
         variables_excluidas_regex=variables_excluidas_regex
@@ -180,6 +184,7 @@ if __name__ == '__main__':
     columna_diccionario_alias = procesador_config.get('columna_diccionario_alias', 'alias')
 
     columna_diccionario_descripcion = procesador_config.get('columna_diccionario_descripcion', None)
+    columna_diccionario_path = procesador_config.get('columna_diccionario_path', None)
     
     # obtener listas de variables a excluir mediante lista explicita y/o lista de expresiones regulares,
     # en caso de existir el campo en el archivo de configuracion
@@ -249,6 +254,7 @@ if __name__ == '__main__':
             columna_diccionario_nombres=columna_diccionario_nombres,
             columna_diccionario_alias=columna_diccionario_alias,
             columna_diccionario_descripcion=columna_diccionario_descripcion,
+            columna_diccionario_path=columna_diccionario_path,
             variables_identificadoras=variables_identificadoras_lugares,
             variables_excluidas_list=variables_excluidas_list_lugares,
             variables_excluidas_regex=variables_excluidas_regex_lugares,
@@ -270,6 +276,7 @@ if __name__ == '__main__':
                 columna_diccionario_nombres=columna_diccionario_nombres,
                 columna_diccionario_alias=columna_diccionario_alias,
                 columna_diccionario_descripcion=columna_diccionario_descripcion,
+                columna_diccionario_path=columna_diccionario_path,
                 variables_identificadoras=variables_identificadoras_lugares,
                 variables_excluidas_list=variables_excluidas_list_lugares,
                 variables_excluidas_regex=variables_excluidas_regex_lugares,
@@ -339,6 +346,7 @@ if __name__ == '__main__':
             columna_diccionario_nombres=columna_diccionario_nombres,
             columna_diccionario_alias=columna_diccionario_alias,
             columna_diccionario_descripcion=columna_diccionario_descripcion,
+            columna_diccionario_path=columna_diccionario_path,
             variables_identificadoras=variables_identificadoras_personas,
             variables_excluidas_list=variables_excluidas_list_personas,
             variables_excluidas_regex=variables_excluidas_regex_personas,
