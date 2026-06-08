@@ -126,23 +126,19 @@ def test_non_category_columns_are_numeric(dynamic_grid_df):
         if column not in grid_df.columns:
             continue
             
-        is_na_mask = grid_df[column].astype(str).str.strip().isin(na_list)
-        valid_data = grid_df[~is_na_mask][column]
-
-        null_count = valid_data.isna().sum()
-        blank_count = (valid_data.astype(str).str.strip() == "").sum()
+        col_series = grid_df[column].astype(str).str.strip()
         
-        if null_count > 0:
-            errors.append(f"[{file_path}] Column '{column}' has {null_count} null/NaN values")
-        if blank_count > 0:
-            errors.append(f"[{file_path}] Column '{column}' has {blank_count} blank values")
-            
-        non_numeric = valid_data[
-            pd.to_numeric(valid_data, errors="coerce").isna() & valid_data.notna()
-        ].unique()
+        numeric_conversion = pd.to_numeric(col_series, errors="coerce")
         
-        if len(non_numeric) > 0:
-            errors.append(f"[{file_path}] Column '{column}' has non-numeric values: {non_numeric.tolist()}")
+        is_na = col_series.isin(na_list)
+        is_not_numeric = numeric_conversion.isna()
+        
+        invalid_mask = (~is_na) & is_not_numeric
+        
+        non_numeric_values = col_series[invalid_mask].unique()
+        
+        if len(non_numeric_values) > 0:
+            errors.append(f"[{file_path}] Column '{column}' has non-numeric/non-NA values: {non_numeric_values.tolist()}")
             
     assert not errors, "\n".join(errors)
 
