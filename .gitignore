@@ -213,4 +213,5 @@ data/*personas.csv
 data/covid19/preprocessed/preprocesamiento_covid19_example_mun_personas.csv
 
 data/*/preprocessed/*
-data/*/processed/*data/denue/raw/denue_codigo_act_por_ageb_matrix.csv
+data/*/processed/*
+data/denue/raw/denue_codigo_act_por_ageb_matrix.csv
