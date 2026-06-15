@@ -6,7 +6,7 @@
 You need to define this env var inside your .env file or your dictionary.json
 ```Javascript
 columna_diccionario_formato="FORMATO O FUENTE"
-DICTIONARY_JSON_PATH=dictionary.json
+CONFIGURATION_JSON_PATH=configuration.json
 ```
 
 Make sure to have this env vars with the right path inside you dictionary.json
@@ -17,6 +17,10 @@ Make sure to have this env vars with the right path inside you dictionary.json
 "columna_diccionario_nombres": "var",
 "columna_diccionario_alias": "var_alias",
 "columna_diccionario_descripcion": "Description",
+"columna_diccionario_values": "Values",           // name of values column in csv
+"NA_VALUES": "na",                                // default n/a values in csv
+
+
 
 # TO DEFINE
 "formato_columna_fecha": "AAAA-MM-DD",
