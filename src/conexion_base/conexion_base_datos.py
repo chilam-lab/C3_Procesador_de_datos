@@ -141,7 +141,7 @@ if __name__ == "__main__":
         dict_cols_per_df[key] = dict_cols
         
         def _get_path(code):
-            base = code.replace('::presencia', '')
+            base = str(code).replace('::presencia', '')
             if '::' in base:
                 return base.split('::')[-1]
             elif '-' in base:

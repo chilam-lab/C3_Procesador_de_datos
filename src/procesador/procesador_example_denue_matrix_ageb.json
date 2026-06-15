@@ -1,0 +1,17 @@
+{
+    "rutas_csv_mallas": {
+        "ageb": "../data/denue/raw/denue_codigo_act_por_ageb_matrix.csv"
+    },
+    "ruta_csv_diccionario_datos": "../data/denue/preprocessed/diccionario_denue_matrix_mun.csv",
+    "ruta_csv_salida": "../data/denue/processed/procesamiento_denue_matrix_ageb.csv",
+    "columna_diccionario_nombres": "var",
+    "columna_diccionario_alias": "alias",
+    "columna_diccionario_descripcion": "description",
+    "variables_identificadoras_lugares": {
+        "ageb": ["cve_ageb"]
+    },
+    "variables_a_procesar_regex_lugares": {
+        "None": ["\\d{6}"]
+    },
+    "q": 10
+}
