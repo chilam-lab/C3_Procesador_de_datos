@@ -108,8 +108,9 @@ if __name__ == "__main__":
                     if val_content:
                         # Verificar el primer elemento
                         first_elem = val_content.split(',')[0].strip()
-                        # Solo INTEGER[] si es dígito puro Y sin ceros iniciales (identificadores
-                        # como cvegeo '01001' deben ser TEXT[] para preservar el formato).
+                        # Si es digito, asumimos entero. Si tiene comillas o caracteres alfa, texto.
+                        # Ojo: ID_REGISTRO es alfanumerico (e.g. 109fd5), asi que isdigit() sera False.
+                        # Solo INTEGER[] si no tiene ceros iniciales (cvegeos como '010011782' deben ser TEXT[])
                         if first_elem.isdigit() and str(int(first_elem)) == first_elem:
                             is_integer_array = True
                 
@@ -168,6 +169,15 @@ if __name__ == "__main__":
         df_vals = df[val_cols_to_extract].copy()
         df_vals['id'] = df_vals.index + 1
 
+        # Excluir variables sin datos en esta malla (todas sus filas con interval nulo
+        # = variable existe en otra malla pero no en esta)
+        if interval_cols:
+            dict_ids_validos = set(df_vals.dropna(subset=interval_cols, how='all')['dict_id'])
+            df_vals = df_vals[df_vals['dict_id'].isin(dict_ids_validos)].reset_index(drop=True)
+            df_vals['id'] = df_vals.index + 1
+            df = df[df['dict_id'].isin(dict_ids_validos)].reset_index(drop=True)
+            df_vars = df_vars[df_vars['id'].isin(dict_ids_validos)]
+
         # columns for generating table
         val_cols_for_table = ['id', 'dict_id', 'bin'] + interval_cols
 
@@ -180,19 +190,38 @@ if __name__ == "__main__":
         df['values_id'] = df_vals['id']
         dataframes[key] = df
 
-    # construir mapeo variable_name -> conjunto de ensambles donde aparece
-    # (cruzando todos los df_vars de cada ensamble cargado en `dataframes`)
+    # construir mapeo variable_name -> conjunto de ensambles con datos reales
+    # (solo se cuenta una malla si la variable tiene al menos un intervalo no-nulo)
     variable_to_grids = {}
     for grid_key, dicts in df_dicts.items():
-        for var_name in dicts['vars']['variable_name']:
-            variable_to_grids.setdefault(var_name, set()).add(grid_key)
+        df_vals_grid = dicts['vals']
+        interval_col = next((c for c in df_vals_grid.columns if c.startswith('interval_')), None)
+        if interval_col:
+            dict_ids_with_data = set(df_vals_grid.loc[df_vals_grid[interval_col].notna(), 'dict_id'])
+        else:
+            dict_ids_with_data = set(dicts['vars']['id'])
+        for _, row in dicts['vars'].iterrows():
+            if row['id'] in dict_ids_with_data:
+                variable_to_grids.setdefault(row['variable_name'], set()).add(grid_key)
 
-    # serializar el conjunto a literal de array de PostgreSQL '{a,b}' por variable, en cada df_vars
-    for grid_key in df_dicts:
-        df_vars_grid = df_dicts[grid_key]['vars']
-        df_vars_grid['available_grids'] = df_vars_grid['variable_name'].apply(
-            lambda v: '{' + ','.join(sorted(variable_to_grids.get(v, set()))) + '}'
+    # construir tabla diccionario unificada: todas las variables de todas las mallas, sin duplicados
+    all_vars_frames = [dicts['vars'][['variable_name', 'metadata']] for dicts in df_dicts.values()]
+    df_vars_all = pd.concat(all_vars_frames).drop_duplicates(subset=['variable_name']).reset_index(drop=True)
+    df_vars_all['id'] = df_vars_all.index + 1
+    df_vars_all['available_grids'] = df_vars_all['variable_name'].apply(
+        lambda v: '{' + ','.join(sorted(variable_to_grids.get(v, set()))) + '}'
+    )
+
+    # re-mapear dict_id en cada malla al ID global del diccionario unificado
+    var_to_global_id = dict(zip(df_vars_all['variable_name'], df_vars_all['id']))
+    for key in df_dicts:
+        df_vars_local = df_dicts[key]['vars']
+        local_to_varname = dict(zip(df_vars_local['id'], df_vars_local['variable_name']))
+        df_vals_remapped = df_dicts[key]['vals'].copy()
+        df_vals_remapped['dict_id'] = df_vals_remapped['dict_id'].map(
+            lambda lid: var_to_global_id[local_to_varname[lid]]
         )
+        df_dicts[key]['vals'] = df_vals_remapped
 
     # conexion postgres
     with psycopg.connect(
@@ -215,47 +244,44 @@ if __name__ == "__main__":
                 'bool': 'BOOLEAN'
             }
 
-            for key, df in dataframes.items():
-                suffix = f'_{key}'
-                tabla_destino = f"{tabla_base}{suffix}"
-                tabla_dict = f"dict_{tabla_base}{suffix}"
-                
-                df_vars = df_dicts[key]['vars']
-                df_vals = df_dicts[key]['vals']
-                dict_cols = dict_cols_per_df[key]
-                tabla_vals = f"values_{tabla_base}{suffix}"
+            tabla_dict = f"dict_{tabla_base}"
 
-                # --- 1. Crear e insertar en tabla diccionario (variables) ---
-                if args.crear_tabla:
-                    cursor.execute(f"DROP TABLE IF EXISTS {tabla_dict} CASCADE;")
-                    create_dict_sql = f"""
+            # --- 1. Crear e insertar tabla diccionario unificada (una sola vez) ---
+            if args.crear_tabla:
+                cursor.execute(f"DROP TABLE IF EXISTS {tabla_dict} CASCADE;")
+                cursor.execute(f"""
                     CREATE TABLE {tabla_dict} (
                         id INTEGER PRIMARY KEY,
                         variable_name TEXT,
                         metadata JSONB,
                         available_grids TEXT[]
                     );
-                    """
-                    cursor.execute(create_dict_sql)
+                """)
 
-                # Insertar datos vars
-                buffer_vars = StringIO()
-                df_vars[['id', 'variable_name', 'metadata', 'available_grids']].to_csv(buffer_vars, index=False, header=True)
-                buffer_vars.seek(0)
+            buffer_vars = StringIO()
+            df_vars_all[['id', 'variable_name', 'metadata', 'available_grids']].to_csv(buffer_vars, index=False, header=True)
+            buffer_vars.seek(0)
 
-                with cursor.copy(sql.SQL("COPY {} ({}) FROM STDIN WITH CSV HEADER").format(
-                    sql.Identifier(tabla_dict),
-                    sql.SQL("id, variable_name, metadata, available_grids")
-                )) as copy:
-                    copy.write(buffer_vars.getvalue())
-                
-                print(f"Datos insertados exitosamente en la tabla diccionario '{tabla_dict}'")
+            with cursor.copy(sql.SQL("COPY {} ({}) FROM STDIN WITH CSV HEADER").format(
+                sql.Identifier(tabla_dict),
+                sql.SQL("id, variable_name, metadata, available_grids")
+            )) as copy:
+                copy.write(buffer_vars.getvalue())
+
+            print(f"Datos insertados exitosamente en la tabla diccionario '{tabla_dict}'")
+
+            for key, df in dataframes.items():
+                suffix = f'_{key}'
+                tabla_destino = f"{tabla_base}{suffix}"
+                df_vals = df_dicts[key]['vals']
+                dict_cols = dict_cols_per_df[key]
+                tabla_vals = f"values_{tabla_base}{suffix}"
 
                 # --- 2. Crear e insertar en tabla values ---
                 if args.crear_tabla:
                     val_columns_sql = [
                         "id INTEGER PRIMARY KEY",
-                        f"dict_id INTEGER REFERENCES {tabla_dict}(id)",
+                        f"dict_id INTEGER REFERENCES {tabla_dict}(id)",  # referencia al dict unificado
                         "bin INTEGER"
                     ]
                     

@@ -34,7 +34,10 @@ dependencies = [
     { name = "psycopg" },
     { name = "psycopg-binary" },
     { name = "psycopg2-binary" },
+    { name = "python-dateutil" },
     { name = "python-dotenv" },
+    { name = "pytz" },
+    { name = "utils" },
 ]
 
 [package.metadata]
@@ -45,7 +48,10 @@ requires-dist = [
     { name = "psycopg", specifier = "==3.2.6" },
     { name = "psycopg-binary", specifier = "==3.2.6" },
     { name = "psycopg2-binary", specifier = ">=2.9.11" },
+    { name = "python-dateutil", specifier = ">=2.9.0.post0" },
     { name = "python-dotenv", specifier = "==1.1.0" },
+    { name = "pytz", specifier = ">=2025.2" },
+    { name = "utils", specifier = ">=1.0.2" },
 ]
 
 [[package]]
@@ -764,6 +770,12 @@ sdist = { url = "https://files.pythonhosted.org/packages/5e/a7/c202b344c5ca7daf3
 wheels = [
     { url = "https://files.pythonhosted.org/packages/c7/b0/003792df09decd6849a5e39c28b513c06e84436a54440380862b5aeff25d/tzdata-2025.3-py2.py3-none-any.whl", hash = "sha256:06a47e5700f3081aab02b2e513160914ff0694bce9947d6b76ebd6bf57cfc5d1", size = 348521 },
 ]
+
+[[package]]
+name = "utils"
+version = "1.0.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/ad/1f/c196d21c2df061923154aecf24cab049a114394956e90c9bfbfdd398e27a/utils-1.0.2.tar.gz", hash = "sha256:f4d5157e27e9d434006b5b52a1ec951a34e53e7ecaa145d43a153ec452eb5d9e", size = 13203 }
 
 [[package]]
 name = "wcwidth"
