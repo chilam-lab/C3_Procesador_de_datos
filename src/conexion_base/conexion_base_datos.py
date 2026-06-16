@@ -154,7 +154,7 @@ if __name__ == "__main__":
         df_vars['metadata'] = df_vars.apply(lambda row: json.dumps({
             'descripcion': row['descripcion'] if pd.notna(row['descripcion']) else None,
             'alias': row['name'],
-            'path': f"{row['path']}/{_get_path(row['code'])}" if ('path' in row.index and pd.notna(row['path'])) else _get_path(row['code'])
+            'path': f"{row['path']}:::{_get_path(row['code'])}" if ('path' in row.index and pd.notna(row['path'])) else _get_path(row['code'])
         }, ensure_ascii=False), axis=1)
         df_vars = df_vars.rename(columns={'code': 'variable_name'})
         df_vars['id'] = df_vars.index + 1
