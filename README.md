@@ -188,6 +188,8 @@ En este paso se realiza una clasificación en cuantiles y procesamiento de los d
   - Obligatorio
     - Columna que tenga como valores los nombres de las variables tal cual se escriben en las columnas del archivo de datos. Nota: El programa solo procesará variables existentes en esta columna, si se especifica una variable que no existe, se omitirá.
     - Columna `alias` con los nombres alternativos (alias) legibles de las variables.
+  - Opcional
+    - Columna que tenga como valores una ruta o categoría jerárquica de la variable (por ejemplo, `"Personas. Escolaridad."`). Si se especifica mediante `columna_diccionario_path`, este valor se propaga a la columna `path` del archivo de salida y es utilizado por el script de carga a base de datos para construir el campo `path` en los metadatos de la tabla diccionario (`dict_<tabla>`).
 
 ### Archivo de configuración
 
@@ -268,6 +270,9 @@ Ejemplo: `config/procesador_example_ensanut.json`
 - `"columna_diccionario_descripcion"` (Opcional):
   Nombre de la columna del diccionario de datos con la descripción de cada variable. Al especificarse, el resultado mantendrá estas descripciones.
 
+- `"columna_diccionario_path"` (Opcional):
+  Nombre de la columna del diccionario de datos que contiene la ruta o categoría jerárquica de cada variable (por ejemplo, `"Personas. Escolaridad."`). Al especificarse, el valor se propaga a la columna `path` del archivo de salida y es utilizado por el script de carga a base de datos para construir el campo `path` en los metadatos de la tabla diccionario.
+
 - `"variables_identificadoras_lugares"` **(Obligatorio)** / `"variables_identificadoras_personas"` (Opcional):
   Diccionario que mapea cada malla a una lista de columnas identificadoras únicas. La clave en `"variables_identificadoras_personas"` debe coincidir con `"tipo_ensamble"`. Ej: `{"mun": ["ENTIDAD_RES", "MUNICIPIO_RES"]}` / `{"personas": ["ID_REGISTRO"]}`.
 
@@ -325,6 +330,7 @@ La estructura de columnas es:
 
 - **name**: Nombre descriptivo de la variable procesada (según la columna `alias` del diccionario de datos).
 - **code**: Alias o código de la variable procesada. Para variables de presencia incluye el sufijo `::presencia` (por ejemplo, `MIGRANTE-1::presencia`).
+- **path**: Ruta o categoría jerárquica de la variable (por ejemplo, `"Personas. Escolaridad."`). Solo presente si se configuró `columna_diccionario_path`. Utilizado por el script de carga a base de datos para construir el campo `path` en los metadatos de la tabla diccionario.
 - **bin**: Número de la categoría o bin asignado (1 a `q`). Nulo para filas de presencia.
 - **interval_{malla}**: Intervalo numérico o de porcentaje correspondiente a la categoría para cada malla (por ejemplo, `interval_mun`). Nulo para filas de presencia.
 - **cells_{malla}**: Conjunto de entidades (por ejemplo, municipios) que pertenecen a ese intervalo/categoría, o bien que tienen valor ≥ 1 en el caso de filas de presencia.
