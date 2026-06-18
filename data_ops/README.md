@@ -3,7 +3,7 @@ The uploader runs a validation test before uploading and prevents uploading a ve
 
 
 
-```
+```yaml
 DB_HOST=localhost
 DB_PORT=5432
 DB_NAME=nombre_de_base
@@ -54,7 +54,7 @@ What it does
 - Uploads the file as a new version.
 
 - Attaches tags – version_num and note – to the newly created version.
-```bash
+```shell
 pip install boto3 pytest python-dotenv
 
 python /path/to/upload.py
@@ -71,6 +71,6 @@ What it does
 
 - Displays the note attached to that version.
 
-```bash
+```shell
 python /path/to/download.py
 ```
