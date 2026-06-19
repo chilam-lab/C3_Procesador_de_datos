@@ -8,6 +8,7 @@
     "columna_diccionario_nombres": "var",
     "columna_diccionario_alias": "alias",
     "columna_diccionario_descripcion": "description",
+    "columna_diccionario_path": "path",
     "variables_identificadoras_lugares": {
         "mun": [
             "cvegeo"
