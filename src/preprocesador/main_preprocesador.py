@@ -1,5 +1,12 @@
+import sys
 import ast
 import os
+script_dir = os.path.dirname(os.path.abspath(__file__))
+src_dir = os.path.dirname(script_dir)
+project_root = os.path.dirname(src_dir)
+
+if src_dir not in sys.path:
+    sys.path.insert(0, src_dir)
 import argparse
 import json
 import pandas as pd
@@ -115,6 +122,21 @@ def validar_diccionario(
                 f'el mismo número de elementos por fila:\n{detalles}{mas}'
             )
 
+def run_validation_tests() -> bool:
+    """
+    Run all pytest tests in the 'tests' folder of the project.
+    Returns True if all tests pass, False otherwise.
+    """
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(os.path.dirname(script_dir))
+    test_file = os.path.join(project_root, 'tests', 'validate_csv.py')
+    
+    if not os.path.exists(test_file):
+        print(f"❌ Test file not found: {test_file}")
+        return False
+    
+    exit_code = pytest.main([test_file, '-v', '--tb=short'])
+    return exit_code == 0
 
 if __name__ == '__main__':
     """
@@ -129,6 +151,11 @@ if __name__ == '__main__':
         FileNotFoundError: Si alguna de las rutas especificadas en el archivo de configuración no existe.
     """
     
+    if not run_validation_tests():
+        print("❌ Validation tests failed. Aborting processing.")
+        sys.exit(1)
+    # ----- Continue with normal execution -----
+    print("✅ All tests passed. Starting processing...")
     # definir flag de archivo de configuracion
     parser = argparse.ArgumentParser(description='Procesador de datos C3')
     parser.add_argument('--config', type=str, required=True, help='Archivo de configuración')
