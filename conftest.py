@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 
 # ---- 1. Load .env and JSON ----
 env_path = Path(os.getcwd()) / ".env"
+print(f"\n>>> Loading environment from: {env_path}")
 load_dotenv(dotenv_path=env_path)
 
 dict_path = os.getenv("CONFIGURATION_JSON_PATH")
