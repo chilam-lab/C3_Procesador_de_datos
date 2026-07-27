@@ -347,6 +347,7 @@ python conexion_base/conexion_base_datos.py \
   --ruta-datos-lugares ../data/covid19/processed/procesamiento_covid19_example.csv \
   --ruta-datos-personas ../data/covid19/processed/procesamiento_covid19_example_personas.csv \
   --tipo-ensamble personas \
+  --ruta-config procesador/procesador_example_covid19.json \
   --ruta-env ./.env \
   --crear-tabla
 ```
@@ -359,6 +360,7 @@ python conexion_base/conexion_base_datos.py \
   --ruta-datos-lugares ../data/denue/processed/procesamiento_denue_example.csv \
   --ruta-datos-personas ../data/denue/processed/procesamiento_denue_example_empresas.csv \
   --tipo-ensamble empresas \
+  --ruta-config procesador/procesador_example_denue.json \
   --ruta-env ./.env \
   --crear-tabla
 ```
@@ -367,10 +369,27 @@ python conexion_base/conexion_base_datos.py \
 - `--ruta-datos-personas`: Ruta del archivo del ensamble secundario generado en el paso de procesamiento. Al especificarse, los datos se cargan en tablas separadas con sufijo `_<tipo-ensamble>`.
 - `--tipo-ensamble`: Nombre del tipo de ensamble secundario (por defecto `personas`). Define la clave interna y el sufijo de las tablas en la base de datos. Debe coincidir con el `tipo_ensamble` configurado en el procesador.
 - `--ruta-datos-procesados`: (Deprecado) Ruta al archivo CSV con los datos procesados. Se asume que corresponde a datos de lugares si se usa.
+- `--ruta-config`: Ruta al archivo de configuración (.json) del procesador de la Fuente de Datos (el mismo usado en el paso de [Categorización y procesamiento](#categorización-y-procesamiento)). Debe incluir el campo `dataset_info` con los metadatos que expone el EP `/info` (ver más abajo).
 - `--ruta-env`: Ruta del archivo de configuración, por defecto `./.env`.
 - `--crear-tabla`: No toma ningún valor; si se incluye, se crean las tablas especificadas en caso de no existir en la base de datos.
 
 ### Archivo de configuración
+
+- El archivo de configuración del procesador (`--ruta-config`) debe incluir el campo `dataset_info`, definido por el creador de la Fuente de Datos, con los metadatos que se guardan en la tabla `info_<tabla>` y que expone el EP `/info`:
+
+```json
+{
+    "dataset_info": {
+        "name": "DENUE",
+        "description": "Directorio Estadístico Nacional de Unidades Económicas",
+        "source_url": "https://www.inegi.org.mx/app/mapa/denue/",
+        "download_url": "https://www.inegi.org.mx/app/descarga/?ti=6",
+        "dict_url": "https://www.inegi.org.mx/rnm/index.php/catalog/700"
+    }
+}
+```
+
+  - `name`, `description` y `source_url` son obligatorios. `download_url` y `dict_url` son opcionales.
 
 - El archivo `.env` debe contener las credenciales y parámetros de la base de datos:
 
@@ -388,6 +407,8 @@ DB_TABLE=nombre_de_tabla
 Este script automatiza la carga de datos procesados desde los archivos CSV del paso de procesamiento hacia la base de datos PostgreSQL, implementando una normalización automática de tablas. Detecta y transforma tipos de datos avanzados de PostgreSQL, convirtiendo columnas con prefijo `cells_` en arreglos de enteros (`INTEGER[]`) y columnas `interval_` en rangos numéricos (`NUMRANGE`), adaptando formatos como "min:max" a la sintaxis nativa "[min,max)". Adicionalmente, optimiza el esquema separando los metadatos repetitivos en una tabla diccionario (`dict_<tabla>`) y vinculándolos a la tabla principal mediante una clave foránea (`dict_id`).
 
 Las tablas generadas para cada dataset siguen la convención `<DB_TABLE>_<tipo>`, donde `<tipo>` es `mun` para el ensamble de lugares y el valor de `--tipo-ensamble` para el ensamble secundario (por ejemplo `_personas`, `_empresas`). Lo mismo aplica para las tablas auxiliares `dict_<tabla>` y `values_<tabla>`.
+
+Adicionalmente, se crea la tabla `info_<tabla>` con una sola fila, correspondiente al campo `dataset_info` del archivo de configuración (`--ruta-config`). Esta fila se reemplaza en cada corrida, con o sin `--crear-tabla`, para reflejar siempre el contenido más reciente del archivo de configuración.
 
 Cada tabla `dict_<tabla>` incluye una columna `available_grids` (`TEXT[]`) con la lista de ensambles donde la variable está disponible. Si se cargan ambos ensambles en la misma corrida (por ejemplo `mun` y `personas`), las variables presentes en los dos quedan con `available_grids = {mun, personas}` en ambas tablas `dict_*`; las exclusivas de un ensamble quedan únicamente con esa clave.
 

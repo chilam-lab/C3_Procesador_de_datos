@@ -1,4 +1,11 @@
 {
+    "dataset_info": {
+        "name": "DENUE",
+        "description": "Directorio Estadístico Nacional de Unidades Económicas",
+        "source_url": "https://www.inegi.org.mx/app/mapa/denue/",
+        "download_url": "https://www.inegi.org.mx/app/descarga/?ti=6",
+        "dict_url": "https://www.inegi.org.mx/rnm/index.php/catalog/700"
+    },
     "rutas_csv_mallas": {
         "mun": "../data/denue/preprocessed/denue_codigo_act_por_municipios_matrix.csv"
     },

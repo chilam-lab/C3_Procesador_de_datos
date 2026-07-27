@@ -1,4 +1,9 @@
 {
+    "dataset_info": {
+        "name": "Censo 2020",
+        "description": "Datos ITER del Censo 2020",
+        "source_url": "https://www.inegi.org.mx/programas/ccpv/2020/#datos_abiertos"
+    },
     "rutas_csv_mallas": {
         "mun": "../data/censo2020/preprocessed/censo2020_mun.csv",
         "ageb": "../data/censo2020/preprocessed/censo2020_ageb.csv"

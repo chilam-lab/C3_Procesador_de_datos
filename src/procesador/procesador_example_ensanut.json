@@ -1,4 +1,9 @@
 {
+    "dataset_info": {
+        "name": "ENSANUT",
+        "description": "Encuesta Nacional de Salud y Nutrición",
+        "source_url": "https://ensanut.insp.mx/"
+    },
     "rutas_csv_mallas": {
         "mun": "../data/ensanut/preprocessed/preprocesamiento_ensanut_example_mun.csv"
     },

@@ -14,26 +14,43 @@ if __name__ == "__main__":
 
     Parámetros de entrada:
         --ruta-datos-procesados: Ruta al archivo CSV con los datos procesados.
+        --ruta-config: Ruta al archivo de configuración (.json) del procesador de la Fuente de Datos,
+            debe incluir el campo dataset_info con los metadatos que expone el EP /info.
         --ruta-env: Ruta al archivo .env con las credenciales de la base de datos (por defecto: ./.env).
         --crear-tabla: Si se incluye, crea la tabla de destino automáticamente si no existe.
 
     Raises:
-        FileNotFoundError: Si no se encuentra el archivo .env en la ruta especificada.
+        FileNotFoundError: Si no se encuentra el archivo .env o el archivo de configuración en la ruta especificada.
+        ValueError: Si el archivo de configuración no contiene el campo dataset_info con sus campos requeridos.
     """
-    
+
     # definir flags de archivos de configuracion
     parser = argparse.ArgumentParser(description="Gestor de carga de datos procesados a base de datos")
     parser.add_argument("--ruta-datos-lugares", type=str, required=False, help="Ruta de los datos procesados de lugares (mallas) que serán cargados a la base de datos")
     parser.add_argument("--ruta-datos-personas", type=str, required=False, help="Ruta de los datos procesados del ensamble secundario que serán cargados a la base de datos")
     parser.add_argument("--tipo-ensamble", type=str, default="personas", help="Tipo de ensamble secundario (e.g. 'personas', 'establecimientos'). Define el sufijo de la tabla en la base de datos (por defecto: 'personas')")
     parser.add_argument("--ruta-datos-procesados", type=str, required=False, help="(Deprecado) Ruta al archivo CSV con los datos procesados (se asume lugares si se usa)")
+    parser.add_argument("--ruta-config", type=str, required=True, help="Ruta al archivo de configuración (.json) del procesador, debe incluir el campo dataset_info con los metadatos de la Fuente de Datos (name, description, source_url, y opcionalmente download_url, dict_url) para el EP /info")
     parser.add_argument("--ruta-env", type=str, default='./.env', help="Ruta al archivo .env")
     parser.add_argument("--crear-tabla", action='store_true', help="Adicionalmente crea la tabla especificada en el archivo .env")
     args = parser.parse_args()
-    
+
     # Validar argumentos
     if not any([args.ruta_datos_lugares, args.ruta_datos_personas, args.ruta_datos_procesados]):
         raise ValueError("Se debe especificar al menos un archivo de datos: --ruta-datos-lugares, --ruta-datos-personas o --ruta-datos-procesados")
+
+    # cargar y validar la informacion de la Fuente de Datos (dataset_info) que expone el EP /info,
+    # definida por el creador de la Fuente en el archivo de configuracion del procesador
+    if not os.path.exists(args.ruta_config):
+        raise FileNotFoundError(f"No se encontró el archivo de configuración: {args.ruta_config}")
+    with open(args.ruta_config, encoding='utf-8') as f:
+        procesador_config = json.load(f)
+    if 'dataset_info' not in procesador_config:
+        raise ValueError('El archivo de configuración debe tener el campo dataset_info con los metadatos de la Fuente de Datos que expone el EP /info')
+    dataset_info = procesador_config['dataset_info']
+    for campo_requerido in ('name', 'description', 'source_url'):
+        if not dataset_info.get(campo_requerido):
+            raise ValueError(f'El campo dataset_info del archivo de configuración debe incluir "{campo_requerido}"')
 
     def _split_mallas(df):
         """Separa un DataFrame con múltiples mallas en un dict {malla: DataFrame}.
@@ -246,6 +263,33 @@ if __name__ == "__main__":
             }
 
             tabla_dict = f"dict_{tabla_base}"
+            tabla_info = f"info_{tabla_base}"
+
+            # --- 0. Crear e insertar tabla de información de la Fuente de Datos (EP /info) ---
+            if args.crear_tabla:
+                cursor.execute(f"DROP TABLE IF EXISTS {tabla_info} CASCADE;")
+                cursor.execute(f"""
+                    CREATE TABLE {tabla_info} (
+                        name TEXT,
+                        description TEXT,
+                        source_url TEXT,
+                        download_url TEXT,
+                        dict_url TEXT
+                    );
+                """)
+
+            cursor.execute(f"DELETE FROM {tabla_info}")
+            cursor.execute(
+                f"INSERT INTO {tabla_info} (name, description, source_url, download_url, dict_url) VALUES (%s, %s, %s, %s, %s)",
+                (
+                    dataset_info.get('name'),
+                    dataset_info.get('description'),
+                    dataset_info.get('source_url'),
+                    dataset_info.get('download_url'),
+                    dataset_info.get('dict_url'),
+                )
+            )
+            print(f"Datos insertados exitosamente en la tabla de información '{tabla_info}'")
 
             # --- 1. Crear e insertar tabla diccionario unificada (una sola vez) ---
             if args.crear_tabla:

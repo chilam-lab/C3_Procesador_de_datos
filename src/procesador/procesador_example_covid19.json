@@ -1,4 +1,9 @@
 {
+    "dataset_info": {
+        "name": "Covid19",
+        "description": "Base de datos DGE/SSA sobre casos de covid-19",
+        "source_url": "https://www.gob.mx/salud/documentos/datos-abiertos-152127"
+    },
     "rutas_csv_mallas": {
         "mun": "../data/covid19/preprocessed/preprocesamiento_covid19_example_mun.csv"
     },
