@@ -252,6 +252,31 @@ class Procesador:
         # normalizar la variable si se especifica una base de normalización, y categorizarla en cuantiles
         return pd.qcut(self.normalizar_variable(malla=malla, var=var, var_base_normalizacion=var_base_normalizacion), q=q, duplicates='drop')
     
+    def __formatear_intervalo_porcentaje(self, izquierda:float, derecha:float) -> str:
+        """
+        Formatea los límites de un intervalo normalizado como porcentaje, aumentando la
+        cantidad de decimales usados cuando sea necesario para evitar que dos límites
+        distintos colapsen en la misma cadena tras el redondeo (ej. '0.1%:0.1%').
+
+        Args:
+            izquierda (float): Límite izquierdo del intervalo (proporción, no porcentaje).
+            derecha (float): Límite derecho del intervalo (proporción, no porcentaje).
+
+        Returns:
+            str: Cadena con el formato 'izquierda%:derecha%'.
+        """
+        decimales = 1
+        izquierda_pct = round(izquierda * 100, decimales)
+        derecha_pct = round(derecha * 100, decimales)
+
+        # aumentar la precision mientras los limites redondeados colapsen en el mismo valor
+        while izquierda_pct == derecha_pct and decimales < 15:
+            decimales += 1
+            izquierda_pct = round(izquierda * 100, decimales)
+            derecha_pct = round(derecha * 100, decimales)
+
+        return f'{izquierda_pct}%:{derecha_pct}%'
+
     def __list_a_postgres_array(self, lista:list) -> str:
         """
         Convierte una lista en un formato compatible con un array de PostgreSQL.
@@ -453,7 +478,7 @@ class Procesador:
                     # agregar el intervalo (o categoria NaN) al resultado
                     if isinstance(intervalo, pd.Interval):
                         resultado[f'interval_{malla}'].append(
-                            f'{(intervalo.left*100).round(1)}%:{(intervalo.right*100).round(1)}%' if (var_base_normalizacion is not None) else f'{intervalo.left}:{intervalo.right}'
+                            self.__formatear_intervalo_porcentaje(intervalo.left, intervalo.right) if (var_base_normalizacion is not None) else f'{intervalo.left}:{intervalo.right}'
                         )
                     else:
                         resultado[f'interval_{malla}'].append('Sin clasificar')
