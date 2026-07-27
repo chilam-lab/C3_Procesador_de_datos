@@ -1,0 +1,37 @@
+{
+    "rutas_csv_mallas": {
+        "mun": "data/censo2020/raw/municipales_iter_2020.csv"
+    },
+    "ruta_csv_dataframe_alias": "data/censo2020/raw/censo.csv",
+    "ruta_csv_salida": "input/censo_2020_transformado.csv",
+    "columna_dataframe_alias_nombres": "var",
+    "columna_dataframe_alias_alias": "var",
+    "columna_dataframe_alias_descripcion": "Description",
+    
+
+    "ruta_csv_diccionario_datos": "data/censo2020/raw/censo.csv",
+    "columna_diccionario_nombres": "var",
+    "columna_diccionario_alias": "var",
+    "columna_diccionario_descripcion": "Description",
+
+
+
+    "columna_diccionario_values": "Values",
+    "NA_VALUES": "na",
+    
+
+
+    "formato_columna_fecha": "AAAA-MM-DD",
+    "columna_fechas": "colN",
+    
+    "variables_identificadoras_lugares": {
+        "mun": [ "ENTIDAD", "MUN"]
+    },
+    "variables_excluidas_list_lugares":
+       ["ENTIDAD", "MUN"],
+    "variables_a_procesar_regex_lugares": {
+        "POBTOT": ["^P.*"],
+	"VIVTOT": ["^V.*"]
+    },    
+    "q": 10
+}

@@ -1,6 +1,7 @@
 import sys
 import ast
 import os
+import pytest
 script_dir = os.path.dirname(os.path.abspath(__file__))
 src_dir = os.path.dirname(script_dir)
 project_root = os.path.dirname(src_dir)
