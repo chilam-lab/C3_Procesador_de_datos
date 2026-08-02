@@ -1,0 +1,126 @@
+name: DB Integration Test
+
+on: [push]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    # Launch a Postgres service container inside the runner
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: testuser
+          POSTGRES_PASSWORD: testpassword
+          POSTGRES_DB: testdb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # The preprocessing/processing scripts run a validation suite first
+      # (tests/validate_csv.py) that needs CONFIGURATION_JSON_PATH in .env.
+      # We point it at the censo config, whose raw files and dictionary format
+      # satisfy that suite. The actual processing below uses the covid19 config.
+      - name: Create .env for validation + DB
+        run: |
+          cat > .env << EOF
+          CONFIGURATION_JSON_PATH=src/preprocesador/censo.json
+          DB_HOST=localhost
+          DB_PORT=5432
+          DB_NAME=testdb
+          DB_USER=testuser
+          DB_PASSWORD=testpassword
+          DB_TABLE=covid19
+          EOF
+
+      - name: Create preprocessed directory
+        run: mkdir -p data/covid19/preprocessed
+
+      - name: Run preprocessor
+        run: |
+          python src/preprocesador/main_preprocesador.py --config configs/preprocess-covid19.json
+
+      - name: Create processed directory
+        run: mkdir -p data/covid19/processed
+
+      - name: Run processor
+        run: |
+          python src/procesador/main_procesador.py --config configs/process-covid19.json
+
+      - name: Load processed data into Postgres
+        run: |
+          python src/conexion_base/conexion_base_datos.py \
+            --ruta-datos-lugares data/covid19/processed/procesamiento_covid19_example.csv \
+            --ruta-datos-personas data/covid19/processed/procesamiento_covid19_example_personas.csv \
+            --tipo-ensamble personas \
+            --ruta-env .env \
+            --crear-tabla
+
+      - name: Verify database and tables
+        run: |
+          python - <<'EOF'
+          import psycopg
+
+          expected = {
+              "dict_covid19": "dictionary of processed variables",
+              "values_covid19_mun": "interval values per variable (municipal grid)",
+              "covid19_mun": "processed rows (municipal grid)",
+              "values_covid19_personas": "interval values per variable (personas)",
+              "covid19_personas": "processed rows (personas)",
+          }
+
+          conn = psycopg.connect(
+              host="localhost", port=5432, dbname="testdb",
+              user="testuser", password="testpassword",
+          )
+          with conn.cursor() as cur:
+              cur.execute(
+                  "SELECT tablename FROM pg_tables "
+                  "WHERE schemaname = 'public' ORDER BY tablename;"
+              )
+              tables = [row[0] for row in cur.fetchall()]
+              print("=== Tables in database 'testdb' ===")
+              for t in tables:
+                  print(f"  {t}")
+
+              print()
+              print("=== Row counts ===")
+              count_by_table = {}
+              for t in tables:
+                  cur.execute(f'SELECT COUNT(*) FROM "{t}";')
+                  count = cur.fetchone()[0]
+                  count_by_table[t] = count
+                  print(f"  {t}: {count} rows")
+          conn.close()
+
+          missing = [t for t in expected if t not in tables]
+          if missing:
+              raise SystemExit(
+                  f"FAIL: expected tables not created: {missing}"
+              )
+
+          empty = [t for t in expected if count_by_table.get(t, 0) == 0]
+          print()
+          if empty:
+              raise SystemExit(f"FAIL: tables exist but have no data: {empty}")
+          print("OK: database 'testdb' created and all tables have data.")
+          EOF

@@ -1,0 +1,160 @@
+name: Process Dataset
+
+on:
+  push:
+    branches:
+      - 'prepare/**'
+  workflow_dispatch:
+    inputs:
+      config_preprocess:
+        description: 'Preprocessing config path'
+        required: false
+        default: 'configs/preprocess-covid19.json'
+      config_process:
+        description: 'Processing config path'
+        required: false
+        default: 'configs/process-covid19.json'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run validation tests
+        run: python -m pytest tests/ -v --tb=short
+
+  preprocess:
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Create preprocessed directory
+        run: mkdir -p data/covid19/preprocessed
+
+      - name: Run preprocessor
+        run: |
+          CONFIG="${{ github.event.inputs.config_preprocess || 'configs/preprocess-covid19.json' }}"
+          python src/preprocesador/main_preprocesador.py --config "$CONFIG"
+
+      - name: Upload preprocessed artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: preprocessed-data
+          path: data/covid19/preprocessed/
+          retention-days: 1
+
+  process:
+    needs: preprocess
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Download preprocessed artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: preprocessed-data
+          path: data/covid19/preprocessed/
+
+      - name: Create processed directory
+        run: mkdir -p data/covid19/processed
+
+      - name: Run processor
+        run: |
+          CONFIG="${{ github.event.inputs.config_process || 'configs/process-covid19.json' }}"
+          python src/procesador/main_procesador.py --config "$CONFIG"
+
+      - name: Upload processed artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: processed-data
+          path: |
+            data/covid19/processed/
+            data/covid19/preprocessed/
+          retention-days: 7
+
+  load-to-db:
+    needs: process
+    runs-on: self-hosted
+    if: vars.DB_LOAD_ENABLED == 'true'
+    env:
+      DB_HOST: ${{ secrets.DB_HOST }}
+      DB_PORT: ${{ secrets.DB_PORT }}
+      DB_NAME: ${{ secrets.DB_NAME }}
+      DB_USER: ${{ secrets.DB_USER }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      DB_TABLE: covid19
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Download processed artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: processed-data
+          path: data/
+
+      - name: Create .env from secrets
+        run: |
+          cat > .env << EOF
+          DB_HOST=${{ secrets.DB_HOST }}
+          DB_PORT=${{ secrets.DB_PORT }}
+          DB_NAME=${{ secrets.DB_NAME }}
+          DB_USER=${{ secrets.DB_USER }}
+          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+          DB_TABLE=covid19
+          EOF
+
+      - name: Load lugares to database
+        run: |
+          python src/conexion_base/conexion_base_datos.py \
+            --ruta-datos-lugares data/covid19/processed/procesamiento_covid19_example.csv \
+            --ruta-env .env \
+            --crear-tabla
+
+      - name: Tag dataset version
+        if: success()
+        run: |
+          VERSION="processor-$(date +'%Y%m%d-%H%M%S')"
+          git config user.name "c3-bot"
+          git config user.email "bot@c3.unam.mx"
+          git tag -a "$VERSION" -m "Automated processing: ${{ github.ref }}"
+          git push origin "$VERSION"

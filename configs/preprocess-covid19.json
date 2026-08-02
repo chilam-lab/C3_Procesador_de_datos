@@ -1,0 +1,69 @@
+{
+    "ruta_csv_diccionario_datos": "data/covid19/raw/240708 Descriptores_rework.csv",
+    "ruta_csv_dataset": "data/covid19/raw/COVID19MEXICO_rework.csv",
+    "ruta_salida_dataset": "data/covid19/preprocessed/preprocesamiento_covid19_example_mun.csv",
+    "ruta_salida_diccionario_datos": "data/covid19/preprocessed/preprocesamiento_covid19_diccionario_datos_example_mun.csv",
+    "columna_diccionario_nombres": "NOMBRE DE VARIABLE",
+    "columna_diccionario_posibles_valores": "POSIBLES VALORES ALIAS",
+    "columna_diccionario_alias": "NOMBRE DE VARIABLE",
+    "columna_diccionario_posibles_valores_alias": "POSIBLES VALORES",
+    "columna_diccionario_descripcion": "DESCRIPCIÓN DE VARIABLE",
+    "variables_identificadoras_list_lugares": [
+        "ENTIDAD_RES",
+        "MUNICIPIO_RES"
+    ],
+    "variables_a_agrupar_lugares": [
+        {
+            "tipo_variables": "categorico",
+            "variables_a_agrupar_list": [],
+            "variables_a_agrupar_regex": [
+                "^(?!EDAD)(?!FECHA)(?!PAIS)(?!ID).*"
+            ]
+        },
+        {
+            "tipo_variables": "numerico",
+            "operacion": "media",
+            "variables_a_agrupar_list": [
+                "EDAD"
+            ],
+            "variables_a_agrupar_regex": []
+        },
+        {
+            "tipo_variables": "numerico",
+            "operacion": "mediana",
+            "variables_a_agrupar_list": [
+                "EDAD"
+            ],
+            "variables_a_agrupar_regex": []
+        }
+    ],
+    "tipo_ensamble": "personas",
+    "variables_identificadoras_list_personas": [
+        "ID_REGISTRO"
+    ],
+    "variables_a_agrupar_personas": [
+        {
+            "tipo_variables": "categorico",
+            "variables_a_agrupar_list": [],
+            "variables_a_agrupar_regex": [
+                "^(?!EDAD)(?!FECHA)(?!PAIS)(?!ID).*"
+            ]
+        },
+        {
+            "tipo_variables": "numerico",
+            "operacion": "media",
+            "variables_a_agrupar_list": [
+                "EDAD"
+            ],
+            "variables_a_agrupar_regex": []
+        },
+        {
+            "tipo_variables": "numerico",
+            "operacion": "mediana",
+            "variables_a_agrupar_list": [
+                "EDAD"
+            ],
+            "variables_a_agrupar_regex": []
+        }
+    ]
+}

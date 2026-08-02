@@ -1,0 +1,76 @@
+{
+    "rutas_csv_mallas": {
+        "mun": "data/covid19/preprocessed/preprocesamiento_covid19_example_mun.csv"
+    },
+    "rutas_csv_personas": {
+        "personas": "data/covid19/preprocessed/preprocesamiento_covid19_example_mun_personas.csv"
+    },
+    "ruta_csv_diccionario_datos": "data/covid19/preprocessed/preprocesamiento_covid19_diccionario_datos_example_mun.csv",
+    "ruta_csv_diccionario_datos_personas": "data/covid19/preprocessed/preprocesamiento_covid19_diccionario_datos_example_mun_personas.csv",
+    "ruta_csv_salida": "data/covid19/processed/procesamiento_covid19_example.csv",
+    "columna_diccionario_nombres": "NOMBRE DE VARIABLE",
+    "columna_diccionario_alias": "alias",
+    "columna_diccionario_descripcion": "DESCRIPCIÓN DE VARIABLE",
+    "variables_identificadoras_lugares": {
+        "mun": [
+            "ENTIDAD_RES",
+            "MUNICIPIO_RES"
+        ]
+    },
+    "variables_excluidas_list_lugares": [
+        "ASMA-1",
+        "ASMA-2",
+        "ASMA-98"
+    ],
+    "variables_excluidas_regex_lugares": [
+        "^ENTIDAD.*', '^MUNICIPIO.*"
+    ],
+    "variables_a_procesar_list_lugares": {
+        "None": [
+            "media::EDAD"
+        ],
+        "conteo::total_datos": [
+            "MIGRANTE-1",
+            "OBESIDAD-1"
+        ]
+    },
+    "variables_a_procesar_regex_lugares": {
+        "None": [
+            "^CLASIFICACION_FINAL_COVID.*"
+        ],
+        "conteo::total_datos": [
+            "^TIPO_PACIENTE.*"
+        ]
+    },
+    "variables_a_procesar_list_presencia": [
+        "MIGRANTE-1"
+    ],
+    "variables_a_procesar_regex_presencia": [
+        "^CLASIFICACION_FINAL_COVID.*"
+    ],
+    "tipo_ensamble": "personas",
+    "variables_identificadoras_personas": {
+        "personas": [
+            "ID_REGISTRO"
+        ]
+    },
+    "variables_excluidas_list_personas": [
+        "ASMA-1",
+        "ASMA-2",
+        "ASMA-98"
+    ],
+    "variables_excluidas_regex_personas": [
+        "^ENTIDAD.*', '^MUNICIPIO.*"
+    ],
+    "variables_a_procesar_list_personas": {
+        "None": [
+            "media::EDAD"
+        ]
+    },
+    "variables_a_procesar_regex_personas": {
+        "None": [
+            "^CLASIFICACION_FINAL_COVID.*"
+        ]
+    },
+    "q": 10
+}
