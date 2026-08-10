@@ -5,20 +5,16 @@ from dotenv import load_dotenv
 import ast
 import json
 
-
-DICCIONARIO_PATH = os.getenv("ruta_csv_diccionario_datos")
-CSV_OUTPUT_PATH = os.getenv("ruta_csv_salida")
-COLUMN_DICCIONARIO_NOMBRES = os.getenv("columna_diccionario_nombres")
-COLUMN_DICCIONARIO_ALIAS = os.getenv("columna_diccionario_alias", "var")
-COLUMN_DICCIONARIO_DESCRIPCION = os.getenv("columna_diccionario_descripcion")
-COLUMN_DICCIONARIO_DESCRIPCION = os.getenv("columna_diccionario_descripcion")
-COLUMN_DICCIONARIO_VALUES = os.getenv("columna_diccionario_values", "Values")
-
-na_env = os.getenv("NA_VALUES", "na")
-
-GRID_CSV_PATH = json.loads(os.getenv("rutas_csv_mallas", "{}"))
-GRID_CSV_MUN_PATH = GRID_CSV_PATH["mun"]
-
+from conftest import (
+    GRID_CSV_PATH,
+    GRID_CSV_MUN_PATH,
+    DICCIONARIO_PATH,
+    COLUMN_DICCIONARIO_NOMBRES,
+    COLUMN_DICCIONARIO_ALIAS,
+    COLUMN_DICCIONARIO_DESCRIPCION,
+    COLUMN_DICCIONARIO_VALUES,
+    NA_ENV
+)
 
 valid_grids = [(key, path) for key, path in GRID_CSV_PATH.items() if os.path.exists(path)]
 
@@ -40,7 +36,7 @@ else:
 def test_alert_on_na_values_usage(capsys, dynamic_grid_df):
     """Scans the dataset for N/A values and prompts the user before proceeding."""
     file_key, grid_df, file_path = dynamic_grid_df
-    na_list = [val.strip().strip("'\"") for val in na_env.split(",") if val.strip()]
+    na_list = [val.strip().strip("'\"") for val in NA_ENV.split(",") if val.strip()]
     
     if not na_list or grid_df.empty:
         return
@@ -116,7 +112,7 @@ def test_alias_var_columns_exist_in_mallas(dynamic_grid_df):
 def test_non_category_columns_are_numeric(dynamic_grid_df):
     file_key, grid_df, file_path = dynamic_grid_df
     errors = []
-    na_list = [val.strip().strip("'\"") for val in na_env.split(",") if val.strip()]
+    na_list = [val.strip().strip("'\"") for val in NA_ENV.split(",") if val.strip()]
 
     for _, row in diccionario_df.iterrows():
         column = row[COLUMN_DICCIONARIO_ALIAS]
@@ -149,7 +145,7 @@ def test_non_category_columns_are_numeric(dynamic_grid_df):
 def test_non_category_columns_are_in_range(dynamic_grid_df):
     file_key, grid_df, file_path = dynamic_grid_df
     errors = []
-    na_list = [val.strip().strip("'\"") for val in na_env.split(",") if val.strip()]
+    na_list = [val.strip().strip("'\"") for val in NA_ENV.split(",") if val.strip()]
 
     for _, row in diccionario_df.iterrows():
         column = row[COLUMN_DICCIONARIO_ALIAS]
@@ -236,7 +232,7 @@ def test_category_columns_have_valid_values_dict():
 
 def test_category_data_matches_dynamic_dictionary_values(dynamic_grid_df):
     file_key, grid_df, file_path = dynamic_grid_df
-    na_list = [val.strip().strip("'\"") for val in na_env.split(",") if val.strip()]
+    na_list = [val.strip().strip("'\"") for val in NA_ENV.split(",") if val.strip()]
     errors = []
     
     for index, row in diccionario_df.iterrows():

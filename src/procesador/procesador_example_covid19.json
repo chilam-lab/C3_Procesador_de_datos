@@ -1,13 +1,13 @@
 {
     "rutas_csv_mallas": {
-        "mun": "../data/covid19/preprocessed/preprocesamiento_covid19_example_mun.csv"
+        "mun": "data/covid19/preprocessed/preprocesamiento_covid19_example_mun.csv"
     },
     "rutas_csv_personas": {
-        "personas": "../data/covid19/preprocessed/preprocesamiento_covid19_example_mun_personas.csv"
+        "personas": "data/covid19/preprocessed/preprocesamiento_covid19_example_mun_personas.csv"
     },
-    "ruta_csv_diccionario_datos": "../data/covid19/preprocessed/preprocesamiento_covid19_diccionario_datos_example_mun.csv",
-    "ruta_csv_diccionario_datos_personas": "../data/covid19/preprocessed/preprocesamiento_covid19_diccionario_datos_example_mun_personas.csv",
-    "ruta_csv_salida": "../data/covid19/processed/procesamiento_covid19_example.csv",
+    "ruta_csv_diccionario_datos": "data/covid19/preprocessed/preprocesamiento_covid19_diccionario_datos_example_mun.csv",
+    "ruta_csv_diccionario_datos_personas": "data/covid19/preprocessed/preprocesamiento_covid19_diccionario_datos_example_mun_personas.csv",
+    "ruta_csv_salida": "data/covid19/processed/procesamiento_covid19_example.csv",
     "columna_diccionario_nombres": "NOMBRE DE VARIABLE",
     "columna_diccionario_alias": "alias",
     "columna_diccionario_descripcion": "DESCRIPCIÓN DE VARIABLE",

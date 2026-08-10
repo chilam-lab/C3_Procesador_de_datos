@@ -1,8 +1,18 @@
-import pandas as pd
+import sys
 import os
+
+script_dir = os.path.dirname(os.path.abspath(__file__))
+src_dir = os.path.dirname(script_dir)
+project_root = os.path.dirname(src_dir)
+
+if src_dir not in sys.path:
+    sys.path.insert(0, src_dir)
+
+import pandas as pd
 import argparse
 import json
 import time
+import pytest
 from procesador.procesador import Procesador
 
 
@@ -127,6 +137,22 @@ def ejecutar_procesamiento(
         
     return resultado
 
+def run_validation_tests() -> bool:
+    """
+    Run all pytest tests in the 'tests' folder of the project.
+    Returns True if all tests pass, False otherwise.
+    """
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(os.path.dirname(script_dir))
+    test_file = os.path.join(project_root, 'tests', 'validate_csv.py')
+    
+    if not os.path.exists(test_file):
+        print(f"❌ Test file not found: {test_file}")
+        return False
+    
+    exit_code = pytest.main([test_file, '-v', '--tb=short'])
+    return exit_code == 0
+
 if __name__ == '__main__':
     """
     Script principal para ejecutar el procesamiento de datos utilizando la clase Procesador.
@@ -140,6 +166,12 @@ if __name__ == '__main__':
         FileNotFoundError: Si alguna de las rutas especificadas en el archivo de configuración no existe.
     """
     
+    if not run_validation_tests():
+        print("❌ Validation tests failed. Aborting processing.")
+        sys.exit(1)
+    # ----- Continue with normal execution -----
+    print("✅ All tests passed. Starting processing...")
+    timestamp_inicio = time.time()
     # timestamp de inicio de ejecucion del programa
     print("Iniciando procesamiento...")
     timestamp_inicio = time.time()
